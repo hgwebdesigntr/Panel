@@ -4,9 +4,9 @@
   "identifier": "com.panel.app",
   "build": {
     "beforeDevCommand": "",
-    "devUrl": "https://VERCEL_URL_BURAYA.vercel.app",
+    "devUrl": "https://hgwebpanel.hgwebdesign.com.tr",
     "beforeBuildCommand": "",
-    "frontendDist": "https://VERCEL_URL_BURAYA.vercel.app"
+    "frontendDist": "https://hgwebpanel.hgwebdesign.com.tr"
   },
   "bundle": {
     "active": true,
