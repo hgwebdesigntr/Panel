@@ -1,22 +1,24 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { LayoutDashboard, AlertCircle } from "lucide-react";
+
 const ReCAPTCHA = dynamic(() => import("react-google-recaptcha"), { ssr: false });
 
 const SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
 export default function LoginPage() {
   const router = useRouter();
-  const recaptchaRef = useRef<{ getValue: () => string | null; reset: () => void }>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaKey, setCaptchaKey] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -24,13 +26,9 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
 
-    let captcha = "";
-    if (SITE_KEY) {
-      captcha = recaptchaRef.current?.getValue() || "";
-      if (!captcha) {
-        setError("Lütfen robot olmadığınızı doğrulayın.");
-        return;
-      }
+    if (SITE_KEY && !captchaToken) {
+      setError("Lütfen robot olmadığınızı doğrulayın.");
+      return;
     }
 
     setLoading(true);
@@ -38,21 +36,22 @@ export default function LoginPage() {
       email,
       password,
       rememberMe: rememberMe ? "on" : "off",
-      captcha,
+      captcha: captchaToken,
       redirect: false,
     });
     setLoading(false);
 
     if (res?.error) {
       setError("E-posta veya şifre hatalı.");
-      recaptchaRef.current?.reset();
+      setCaptchaToken("");
+      setCaptchaKey((k) => k + 1);
     } else {
       router.push("/dashboard");
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-900 via-slate-800 to-indigo-900 p-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-500 shadow-xl shadow-indigo-500/30 mb-4">
@@ -105,13 +104,19 @@ export default function LoginPage() {
 
             {SITE_KEY && (
               <div className="flex justify-center">
-                <ReCAPTCHA ref={recaptchaRef} sitekey={SITE_KEY} theme="dark" />
+                <ReCAPTCHA
+                  key={captchaKey}
+                  sitekey={SITE_KEY}
+                  theme="dark"
+                  onChange={(token) => setCaptchaToken(token ?? "")}
+                  onExpired={() => setCaptchaToken("")}
+                />
               </div>
             )}
 
             {error && (
               <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                <AlertCircle size={16} className="text-red-400 flex-shrink-0" />
+                <AlertCircle size={16} className="text-red-400 shrink-0" />
                 <p className="text-sm text-red-300">{error}</p>
               </div>
             )}
