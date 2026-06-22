@@ -1,18 +1,19 @@
 "use client";
 
 import { useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import ReCAPTCHA from "react-google-recaptcha";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { LayoutDashboard, AlertCircle } from "lucide-react";
+const ReCAPTCHA = dynamic(() => import("react-google-recaptcha"), { ssr: false });
 
 const SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
 export default function LoginPage() {
   const router = useRouter();
-  const recaptchaRef = useRef<ReCAPTCHA>(null);
+  const recaptchaRef = useRef<{ getValue: () => string | null; reset: () => void }>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
@@ -23,7 +24,6 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
 
-    // reCAPTCHA kontrolü (site key varsa)
     let captcha = "";
     if (SITE_KEY) {
       captcha = recaptchaRef.current?.getValue() || "";
@@ -54,7 +54,6 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 p-4">
       <div className="w-full max-w-sm">
-        {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-500 shadow-xl shadow-indigo-500/30 mb-4">
             <LayoutDashboard size={28} className="text-white" />
@@ -63,7 +62,6 @@ export default function LoginPage() {
           <p className="text-slate-400 text-sm mt-1">Hesabınıza giriş yapın</p>
         </div>
 
-        {/* Form */}
         <div className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-2xl p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
@@ -87,7 +85,6 @@ export default function LoginPage() {
               className="bg-white/90"
             />
 
-            {/* Beni Hatırla */}
             <label className="flex items-center gap-2.5 cursor-pointer select-none">
               <div className="relative">
                 <input
@@ -106,14 +103,9 @@ export default function LoginPage() {
               <span className="text-sm text-slate-300">Beni hatırla</span>
             </label>
 
-            {/* reCAPTCHA */}
             {SITE_KEY && (
               <div className="flex justify-center">
-                <ReCAPTCHA
-                  ref={recaptchaRef}
-                  sitekey={SITE_KEY}
-                  theme="dark"
-                />
+                <ReCAPTCHA ref={recaptchaRef} sitekey={SITE_KEY} theme="dark" />
               </div>
             )}
 
@@ -124,11 +116,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            <Button
-              type="submit"
-              className="w-full h-11 text-sm font-semibold mt-2"
-              loading={loading}
-            >
+            <Button type="submit" className="w-full h-11 text-sm font-semibold mt-2" loading={loading}>
               Giriş Yap
             </Button>
           </form>
