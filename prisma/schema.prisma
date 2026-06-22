@@ -1,0 +1,241 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String   @default("Admin")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id           String        @id @default(cuid())
+  name         String
+  company      String?
+  email        String?
+  phone        String?
+  address      String?
+  taxNumber    String?
+  taxOffice    String?
+  notes        String?
+  category     String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[]
+  jobs         Job[]
+  servers      Server[]
+  invoices     Invoice[]
+}
+
+model Transaction {
+  id          String          @id @default(cuid())
+  type        TransactionType
+  amount      Float
+  currency    String          @default("TRY")
+  description String
+  dueDate     DateTime?
+  isPaid      Boolean         @default(false)
+  paidDate    DateTime?
+  customerId  String?
+  invoiceId   String?
+  jobId       String?
+  category    String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  customer    Customer?       @relation(fields: [customerId], references: [id])
+  invoice     Invoice?        @relation(fields: [invoiceId], references: [id])
+  job         Job?            @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  payments    Payment[]
+
+  @@index([jobId])
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  RECEIVABLE
+  PAYABLE
+}
+
+model Payment {
+  id            String      @id @default(cuid())
+  transactionId String
+  amount        Float
+  currency      String      @default("TRY")
+  method        String?
+  notes         String?
+  paidAt        DateTime    @default(now())
+  createdAt     DateTime    @default(now())
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model Job {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  status      JobStatus    @default(OFFER)
+  customerId  String?
+  startDate   DateTime?
+  endDate     DateTime?
+  price       Float?
+  paidAmount  Float?       @default(0)
+  currency    String       @default("TRY")
+  cost        Float?
+  notes       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  customer     Customer?     @relation(fields: [customerId], references: [id])
+  invoices     Invoice[]
+  transactions Transaction[]
+}
+
+enum JobStatus {
+  OFFER
+  APPROVED
+  IN_PROGRESS
+  COMPLETED
+  INVOICED
+  CANCELLED
+}
+
+model Server {
+  id           String        @id @default(cuid())
+  name         String
+  type         ServerType    @default(SERVER)
+  customerId   String?
+  domain       String?
+  ip           String?
+  startDate    DateTime?
+  renewalDate  DateTime?
+  price        Float?
+  currency     String        @default("TRY")
+  billingCycle BillingCycle  @default(ANNUAL)
+  status       ServerStatus  @default(ACTIVE)
+  panelUrl     String?
+  panelUser    String?
+  panelPass    String?
+  notes        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  customer     Customer?     @relation(fields: [customerId], references: [id])
+  payments     ServerPayment[]
+}
+
+enum ServerType {
+  SERVER
+  VPS
+  HOSTING
+  DOMAIN
+  SSL
+  OTHER
+}
+
+enum ServerStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  SUSPENDED
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUAL
+  ANNUAL
+}
+
+model ServerPayment {
+  id        String   @id @default(cuid())
+  serverId  String
+  amount    Float
+  currency  String   @default("TRY")
+  paidAt    DateTime
+  validFrom DateTime
+  validTo   DateTime
+  notes     String?
+  createdAt DateTime @default(now())
+  server    Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+}
+
+model Invoice {
+  id           String        @id @default(cuid())
+  number       String        @unique
+  type         InvoiceType   @default(INVOICE)
+  customerId   String?
+  jobId        String?
+  status       InvoiceStatus @default(DRAFT)
+  issueDate    DateTime      @default(now())
+  dueDate      DateTime?
+  subtotal     Float         @default(0)
+  taxRate      Float         @default(20)
+  taxAmount    Float         @default(0)
+  total        Float         @default(0)
+  currency     String        @default("TRY")
+  notes        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  customer     Customer?     @relation(fields: [customerId], references: [id])
+  job          Job?          @relation(fields: [jobId], references: [id])
+  items        InvoiceItem[]
+  transactions Transaction[]
+}
+
+enum InvoiceType {
+  INVOICE
+  OFFER
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Float   @default(1)
+  unitPrice   Float
+  total       Float
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  unitPrice   Float    @default(0)
+  currency    String   @default("TRY")
+  unit        String   @default("Adet")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Settings {
+  id             String   @id @default("default")
+  companyName    String   @default("")
+  companyAddress String   @default("")
+  companyPhone   String   @default("")
+  companyEmail   String   @default("")
+  taxNumber      String   @default("")
+  taxOffice      String   @default("")
+  invoicePrefix  String   @default("FAT")
+  offerPrefix    String   @default("TEK")
+  nextInvoiceNo  Int      @default(1)
+  nextOfferNo    Int      @default(1)
+  encryptionKey  String   @default("")
+  logoBase64     String   @default("") @db.Text
+  faviconBase64  String   @default("") @db.Text
+  updatedAt      DateTime @updatedAt
+}

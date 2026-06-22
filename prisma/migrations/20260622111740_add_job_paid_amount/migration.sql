@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Job" ADD COLUMN     "paidAmount" DOUBLE PRECISION DEFAULT 0;
