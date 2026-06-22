@@ -7,18 +7,17 @@ const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const existing = await prisma.user.findFirst();
-  if (existing) {
-    console.log("✓ Kullanıcı zaten mevcut:", existing.email);
-    return;
-  }
+  // Remove old default admin if exists
+  await prisma.user.deleteMany({ where: { email: "admin@panel.com" } });
 
-  const hash = await bcrypt.hash("admin123", 12);
-  const user = await prisma.user.create({
-    data: {
-      email: "admin@panel.com",
+  const hash = await bcrypt.hash("954789h.", 12);
+  const user = await prisma.user.upsert({
+    where: { email: "halil@hgwebdesign.com.tr" },
+    update: { password: hash, name: "Halil Güray Güler" },
+    create: {
+      email: "halil@hgwebdesign.com.tr",
       password: hash,
-      name: "Admin",
+      name: "Halil Güray Güler",
     },
   });
 
@@ -28,9 +27,7 @@ async function main() {
     create: { id: "default" },
   });
 
-  console.log("✓ Kullanıcı oluşturuldu:", user.email);
-  console.log("  Şifre: admin123");
-  console.log("  → Giriş yaptıktan sonra şifreyi değiştirin!");
+  console.log("✓ Kullanıcı hazır:", user.email);
 }
 
 main()
