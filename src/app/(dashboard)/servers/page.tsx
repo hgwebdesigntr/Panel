@@ -211,11 +211,11 @@ export default function ServersPage() {
     });
     setPaymentLoading(false);
     setShowPaymentForm(false);
-    // Detayı güncelle
-    const r = await fetch(`/api/servers/${detailServer.id}`);
+    const r = await fetch(`/api/servers/${detailServer.id}`, { cache: "no-store" });
     const updated = await r.json();
     setDetailServer(updated);
-    updateTableRenewal(updated.id, updated.payments ?? []);
+    // Listedeki yenileme tarihi doğrudan sunucudan çek
+    load();
   };
 
   const deletePayment = async (paymentId: string) => {
@@ -225,23 +225,13 @@ export default function ServersPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paymentId }),
     });
-    const r = await fetch(`/api/servers/${detailServer.id}`);
+    const r = await fetch(`/api/servers/${detailServer.id}`, { cache: "no-store" });
     const updated = await r.json();
     setDetailServer(updated);
-    updateTableRenewal(updated.id, updated.payments ?? []);
+    load();
   };
 
   const copy = (text: string) => navigator.clipboard.writeText(text);
-
-  // En uzak validTo'yu bul ve servers state'ini anında güncelle
-  const updateTableRenewal = (serverId: string, payments: ServerPayment[]) => {
-    const maxValidTo = payments.length > 0
-      ? payments.reduce((max, p) => new Date(p.validTo) > new Date(max) ? p.validTo : max, payments[0].validTo)
-      : null;
-    setServers((prev) => prev.map((s) =>
-      s.id === serverId ? { ...s, lastPaymentValidTo: maxValidTo } : s
-    ));
-  };
 
   const customerOptions = [
     { value: "", label: "Müşteri seçin (opsiyonel)" },
