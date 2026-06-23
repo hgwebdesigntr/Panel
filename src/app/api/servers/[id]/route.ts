@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     where: { id },
     include: {
       customer: { select: { id: true, name: true } },
-      payments: { orderBy: { paidAt: "desc" } },
+      payments: { orderBy: { validTo: "desc" } },
     },
   });
 

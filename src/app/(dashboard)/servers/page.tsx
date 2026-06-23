@@ -215,11 +215,7 @@ export default function ServersPage() {
     const r = await fetch(`/api/servers/${detailServer.id}`);
     const updated = await r.json();
     setDetailServer(updated);
-    // Tablodaki yenileme tarihini anında güncelle (load() beklemeden)
-    const newValidTo = updated.payments?.[0]?.validTo ?? null;
-    setServers((prev) => prev.map((s) =>
-      s.id === updated.id ? { ...s, lastPaymentValidTo: newValidTo } : s
-    ));
+    updateTableRenewal(updated.id, updated.payments ?? []);
   };
 
   const deletePayment = async (paymentId: string) => {
@@ -232,15 +228,20 @@ export default function ServersPage() {
     const r = await fetch(`/api/servers/${detailServer.id}`);
     const updated = await r.json();
     setDetailServer(updated);
-    // Tablodaki yenileme tarihini anında güncelle
-    setServers((prev) => prev.map((s) =>
-      s.id === updated.id
-        ? { ...s, lastPaymentValidTo: updated.payments?.[0]?.validTo ?? null }
-        : s
-    ));
+    updateTableRenewal(updated.id, updated.payments ?? []);
   };
 
   const copy = (text: string) => navigator.clipboard.writeText(text);
+
+  // En uzak validTo'yu bul ve servers state'ini anında güncelle
+  const updateTableRenewal = (serverId: string, payments: ServerPayment[]) => {
+    const maxValidTo = payments.length > 0
+      ? payments.reduce((max, p) => new Date(p.validTo) > new Date(max) ? p.validTo : max, payments[0].validTo)
+      : null;
+    setServers((prev) => prev.map((s) =>
+      s.id === serverId ? { ...s, lastPaymentValidTo: maxValidTo } : s
+    ));
+  };
 
   const customerOptions = [
     { value: "", label: "Müşteri seçin (opsiyonel)" },
