@@ -37,6 +37,7 @@ interface Server {
   ip: string | null;
   startDate: string | null;
   renewalDate: string | null;
+  lastPaymentValidTo: string | null;
   price: number | null;
   currency: string;
   billingCycle: string;
@@ -59,12 +60,13 @@ const emptyForm = {
 };
 
 const typeOptions   = [
-  { value: "SERVER",  label: "Sunucu"  },
-  { value: "VPS",     label: "VPS"     },
-  { value: "HOSTING", label: "Hosting" },
-  { value: "DOMAIN",  label: "Domain"  },
-  { value: "SSL",     label: "SSL"     },
-  { value: "OTHER",   label: "Diğer"   },
+  { value: "SERVER",         label: "Sunucu"              },
+  { value: "VPS",            label: "VPS"                 },
+  { value: "HOSTING",        label: "Hosting"             },
+  { value: "DOMAIN",         label: "Domain"              },
+  { value: "DOMAIN_HOSTING", label: "Domain + Hosting"    },
+  { value: "SSL",            label: "SSL"                 },
+  { value: "OTHER",          label: "Diğer"               },
 ];
 const cycleOptions  = [
   { value: "MONTHLY",     label: "Aylık"   },
@@ -80,7 +82,7 @@ const statusOptions = [
 ];
 
 const cycleLabel: Record<string, string> = { MONTHLY: "Aylık", QUARTERLY: "3 Aylık", SEMI_ANNUAL: "6 Aylık", ANNUAL: "Yıllık" };
-const typeLabel:  Record<string, string> = { SERVER: "Sunucu", VPS: "VPS", HOSTING: "Hosting", DOMAIN: "Domain", SSL: "SSL", OTHER: "Diğer" };
+const typeLabel:  Record<string, string> = { SERVER: "Sunucu", VPS: "VPS", HOSTING: "Hosting", DOMAIN: "Domain", DOMAIN_HOSTING: "Domain + Hosting", SSL: "SSL", OTHER: "Diğer" };
 const MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 
 /* period in months per billing cycle */
@@ -234,7 +236,12 @@ export default function ServersPage() {
   ];
 
   const serversWithRenewal = useMemo(() =>
-    servers.map((s) => ({ ...s, nextRenewal: getNextRenewalDate(s.startDate, s.billingCycle) })),
+    servers.map((s) => ({
+      ...s,
+      nextRenewal: s.lastPaymentValidTo
+        ? new Date(s.lastPaymentValidTo)
+        : getNextRenewalDate(s.startDate, s.billingCycle),
+    })),
     [servers]
   );
 
@@ -299,7 +306,7 @@ export default function ServersPage() {
             {activeFilterLabel && <button onClick={clearMonthFilter} className="ml-1 text-xs text-slate-400 hover:text-red-500">✕</button>}
           </div>
           <div className="flex items-center gap-1">
-            {["", "SERVER", "VPS", "HOSTING", "DOMAIN", "SSL"].map((t) => (
+            {["", "SERVER", "VPS", "HOSTING", "DOMAIN", "DOMAIN_HOSTING", "SSL"].map((t) => (
               <button key={t} onClick={() => setFilterType(t)} className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${filterType === t ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300"}`}>
                 {t === "" ? "Tümü" : typeLabel[t]}
               </button>

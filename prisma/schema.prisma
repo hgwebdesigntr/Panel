@@ -134,6 +134,7 @@ enum ServerType {
   VPS
   HOSTING
   DOMAIN
+  DOMAIN_HOSTING
   SSL
   OTHER
 }

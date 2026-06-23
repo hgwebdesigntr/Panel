@@ -13,18 +13,21 @@ export async function GET(req: NextRequest) {
   const servers = await prisma.server.findMany({
     where: {
       ...(status ? { status: status as "ACTIVE" | "EXPIRED" | "CANCELLED" | "SUSPENDED" } : {}),
-      ...(type ? { type: type as "SERVER" | "VPS" | "HOSTING" | "DOMAIN" | "SSL" | "OTHER" } : {}),
+      ...(type ? { type: type as "SERVER" | "VPS" | "HOSTING" | "DOMAIN" | "DOMAIN_HOSTING" | "SSL" | "OTHER" } : {}),
     },
     include: {
       customer: { select: { id: true, name: true, company: true } },
+      payments: { select: { validTo: true }, orderBy: { validTo: "desc" }, take: 1 },
       _count: { select: { payments: true } },
     },
-    orderBy: { renewalDate: "asc" },
+    orderBy: { createdAt: "desc" },
   });
 
   const result = servers.map((s: typeof servers[number]) => ({
     ...s,
     panelPass: s.panelPass ? "••••••••" : null,
+    lastPaymentValidTo: s.payments[0]?.validTo ?? null,
+    payments: undefined,
   }));
 
   return NextResponse.json(result);
