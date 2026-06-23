@@ -211,10 +211,15 @@ export default function ServersPage() {
     });
     setPaymentLoading(false);
     setShowPaymentForm(false);
-    // Refresh detail
+    // Detayı güncelle
     const r = await fetch(`/api/servers/${detailServer.id}`);
-    setDetailServer(await r.json());
-    load();
+    const updated = await r.json();
+    setDetailServer(updated);
+    // Tablodaki yenileme tarihini anında güncelle (load() beklemeden)
+    const newValidTo = updated.payments?.[0]?.validTo ?? null;
+    setServers((prev) => prev.map((s) =>
+      s.id === updated.id ? { ...s, lastPaymentValidTo: newValidTo } : s
+    ));
   };
 
   const deletePayment = async (paymentId: string) => {
@@ -225,7 +230,14 @@ export default function ServersPage() {
       body: JSON.stringify({ paymentId }),
     });
     const r = await fetch(`/api/servers/${detailServer.id}`);
-    setDetailServer(await r.json());
+    const updated = await r.json();
+    setDetailServer(updated);
+    // Tablodaki yenileme tarihini anında güncelle
+    setServers((prev) => prev.map((s) =>
+      s.id === updated.id
+        ? { ...s, lastPaymentValidTo: updated.payments?.[0]?.validTo ?? null }
+        : s
+    ));
   };
 
   const copy = (text: string) => navigator.clipboard.writeText(text);
