@@ -16,7 +16,7 @@ import {
 import {
   Plus, Pencil, Trash2, Globe, Eye, EyeOff,
   ExternalLink, Copy, Calendar, ChevronLeft, ChevronRight,
-  Banknote, PlusCircle, X, Mail, Loader2,
+  Banknote, PlusCircle, X, Mail, Loader2, MessageCircle, User,
 } from "lucide-react";
 
 /* ─── Types ─────────────────────────────────────────────── */
@@ -47,11 +47,12 @@ interface Server {
   panelUser: string | null;
   panelPass: string | null;
   notes: string | null;
-  customer: { id: string; name: string; company: string | null } | null;
+  customer: { id: string; name: string; company: string | null; phone: string | null } | null;
   payments?: ServerPayment[];
 }
 
 interface Customer { id: string; name: string; company: string | null; }
+type ServerWithRenewal = Server & { nextRenewal: Date | null };
 
 /* ─── Constants ──────────────────────────────────────────── */
 const emptyForm = {
@@ -140,6 +141,10 @@ export default function ServersPage() {
   const [sendingMail, setSendingMail] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<ToastData | null>(null);
   const [confirm, setConfirm] = useState<ConfirmData | null>(null);
+  const [waModal, setWaModal]       = useState(false);
+  const [waServer, setWaServer]     = useState<ServerWithRenewal | null>(null);
+  const [waAmount, setWaAmount]     = useState("");
+  const [waCurrency, setWaCurrency] = useState("TRY");
 
   const now = new Date();
   const [filterYear, setFilterYear]   = useState<number | null>(null);
@@ -286,6 +291,54 @@ export default function ServersPage() {
     });
   };
 
+  const buildWaMessage = (s: ServerWithRenewal, amount: string, currency: string) => {
+    const daysLeft = s.nextRenewal
+      ? Math.ceil((s.nextRenewal.getTime() - Date.now()) / 86_400_000)
+      : null;
+    const daysText = daysLeft === null ? "—"
+      : daysLeft === 0 ? "Bugün"
+      : daysLeft < 0 ? "Süresi geçti"
+      : `${daysLeft} gün`;
+    const renewalDateStr = s.nextRenewal ? formatDate(s.nextRenewal) : "—";
+    const domainText = s.domain ? ` (${s.domain})` : "";
+    const amtNum = parseFloat(amount) || 0;
+    const amountText = amtNum > 0 ? formatCurrency(amtNum, currency) : "—";
+    return (
+      `Merhaba ${s.customer?.name || ""},\n\n` +
+      `*${s.name}*${domainText} hizmetinizin yenileme zamanı yaklaşmaktadır.\n\n` +
+      `📅 Yenileme Tarihi: ${renewalDateStr}\n` +
+      `⏰ Kalan Süre: ${daysText}\n` +
+      `💰 Yenileme Tutarı: *${amountText}*\n\n` +
+      `Kesintisiz hizmet için ödemenizi gerçekleştirmenizi rica ederiz.\n\n` +
+      `_HGweb Design_`
+    );
+  };
+
+  const openWhatsApp = (s: ServerWithRenewal) => {
+    setWaServer(s);
+    setWaAmount(s.price ? String(s.price) : "");
+    setWaCurrency(s.currency);
+    setWaModal(true);
+  };
+
+  const sendWhatsApp = () => {
+    if (!waServer) return;
+    const phone = waServer.customer?.phone;
+    if (!phone) {
+      setToast({ type: "error", title: "Telefon numarası yok", message: "Müşterinin telefon numarasını müşteriler sayfasından ekleyin." });
+      setWaModal(false);
+      return;
+    }
+    // Türkiye numarası: 0XXXXXXXXXX → 90XXXXXXXXXX, 5XXXXXXXXX → 905XXXXXXXXX
+    let cleaned = phone.replace(/\D/g, "");
+    if (cleaned.startsWith("0") && cleaned.length === 11) cleaned = "90" + cleaned.slice(1);
+    else if (cleaned.length === 10) cleaned = "90" + cleaned;
+
+    const message = buildWaMessage(waServer, waAmount, waCurrency);
+    window.open(`https://wa.me/${cleaned}?text=${encodeURIComponent(message)}`, "_blank");
+    setWaModal(false);
+  };
+
   const customerOptions = [
     { value: "", label: "Müşteri seçin (opsiyonel)" },
     ...customers.map((c) => ({ value: c.id, label: c.company ? `${c.name} — ${c.company}` : c.name })),
@@ -419,22 +472,31 @@ export default function ServersPage() {
                       <td className="px-5 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
                           {showMail && (
-                            <button
-                              onClick={() => sendMail(s.id, s.name)}
-                              disabled={sendingMail[s.id]}
-                              title="Yenileme hatırlatması gönder"
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                daysLeft <= 3
-                                  ? "text-red-400 hover:text-red-600 hover:bg-red-50"
-                                  : daysLeft <= 7
-                                  ? "text-amber-400 hover:text-amber-600 hover:bg-amber-50"
-                                  : "text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50"
-                              }`}
-                            >
-                              {sendingMail[s.id]
-                                ? <Loader2 size={15} className="animate-spin" />
-                                : <Mail size={15} />}
-                            </button>
+                            <>
+                              <button
+                                onClick={() => sendMail(s.id, s.name)}
+                                disabled={sendingMail[s.id]}
+                                title="E-posta hatırlatması gönder"
+                                className={`p-1.5 rounded-lg transition-colors ${
+                                  daysLeft <= 3
+                                    ? "text-red-400 hover:text-red-600 hover:bg-red-50"
+                                    : daysLeft <= 7
+                                    ? "text-amber-400 hover:text-amber-600 hover:bg-amber-50"
+                                    : "text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50"
+                                }`}
+                              >
+                                {sendingMail[s.id]
+                                  ? <Loader2 size={15} className="animate-spin" />
+                                  : <Mail size={15} />}
+                              </button>
+                              <button
+                                onClick={() => openWhatsApp(s)}
+                                title="WhatsApp ile bildir"
+                                className="p-1.5 rounded-lg text-green-500 hover:text-green-700 hover:bg-green-50 transition-colors"
+                              >
+                                <MessageCircle size={15} />
+                              </button>
+                            </>
                           )}
                           <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"><Pencil size={15} /></button>
                           <button onClick={() => remove(s.id, s.name)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={15} /></button>
@@ -498,6 +560,82 @@ export default function ServersPage() {
           <div className="col-span-2"><Textarea label="Notlar" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Notlar..." rows={2} /></div>
         </div>
       </Modal>
+
+      {/* ── WhatsApp Modal ───────────────────────────────── */}
+      {waServer && (
+        <Modal
+          open={waModal}
+          onClose={() => setWaModal(false)}
+          title="WhatsApp Mesajı Gönder"
+          size="sm"
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setWaModal(false)}>İptal</Button>
+              <Button
+                onClick={sendWhatsApp}
+                className="bg-green-600! hover:bg-green-700! text-white!"
+              >
+                <MessageCircle size={14} />WhatsApp'ta Aç
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            {/* Sunucu + müşteri bilgisi */}
+            <div className="bg-slate-50 rounded-xl p-3 space-y-1">
+              <p className="text-sm font-semibold text-slate-800">{waServer.name}</p>
+              {waServer.domain && <p className="text-xs text-slate-500">{waServer.domain}</p>}
+              {waServer.customer && (
+                <p className="text-xs text-slate-600 flex items-center gap-1.5">
+                  <User size={11} className="text-slate-400" />
+                  {waServer.customer.name}
+                  {waServer.customer.phone
+                    ? <span className="text-slate-400">· {waServer.customer.phone}</span>
+                    : <span className="text-amber-500 font-medium">· Telefon numarası yok</span>}
+                </p>
+              )}
+            </div>
+
+            {!waServer.customer?.phone && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+                Müşterinin telefon numarası kayıtlı değil. Müşteriler sayfasından eklenebilir.
+              </p>
+            )}
+
+            {/* Tutar */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Yenileme Tutarı</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  value={waAmount}
+                  onChange={(e) => setWaAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+                <select
+                  value={waCurrency}
+                  onChange={(e) => setWaCurrency(e.target.value)}
+                  className="px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                >
+                  <option value="TRY">₺ TRY</option>
+                  <option value="USD">$ USD</option>
+                  <option value="EUR">€ EUR</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Mesaj önizleme */}
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Mesaj Önizleme</p>
+              <div className="bg-green-50 border border-green-100 rounded-xl px-3 py-2.5 text-xs text-slate-700 whitespace-pre-wrap leading-relaxed font-mono">
+                {buildWaMessage(waServer, waAmount, waCurrency)}
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       <Toast toast={toast} onClose={() => setToast(null)} />
       <ConfirmDialog data={confirm} />

@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
       ...(type ? { type: type as "SERVER" | "VPS" | "HOSTING" | "DOMAIN" | "DOMAIN_HOSTING" | "SSL" | "OTHER" } : {}),
     },
     include: {
-      customer: { select: { id: true, name: true, company: true } },
+      customer: { select: { id: true, name: true, company: true, phone: true } },
       payments: { select: { validTo: true }, orderBy: { validTo: "desc" }, take: 1 },
       _count: { select: { payments: true } },
     },
