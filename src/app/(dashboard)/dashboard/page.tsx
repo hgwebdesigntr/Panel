@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Header } from "@/components/layout/header";
 import { Card, CardHeader, CardTitle, StatCard } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate, getRenewalStatus } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   TrendingUp, TrendingDown, AlertCircle, Briefcase,
   Server, ArrowUpRight, ArrowDownRight,
@@ -16,7 +16,7 @@ interface DashboardData {
   monthlyIncome: number;
   monthlyExpense: number;
   pendingJobs: number;
-  expiringServers: Array<{ id: string; name: string; renewalDate: string; customer: { name: string } | null }>;
+  expiringServers: Array<{ id: string; name: string; renewalDate: string; daysLeft: number; customer: { name: string } | null }>;
   recentTransactions: Array<{ id: string; description: string; amount: number; type: string; createdAt: string; customer: { name: string } | null }>;
 }
 
@@ -112,21 +112,19 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-2">
                 {data.expiringServers.map((server) => {
-                  const renewal = getRenewalStatus(server.renewalDate);
+                  const d = server.daysLeft;
+                  const badgeClass = d === 0 ? "bg-red-100 text-red-700" : d <= 7 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700";
+                  const badgeLabel = d === 0 ? "Bugün" : `${d} gün`;
                   return (
                     <div key={server.id} className="flex items-center justify-between py-2.5 px-3 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-slate-900 truncate">{server.name}</p>
                         <p className="text-xs text-slate-500">{server.customer?.name || "—"}</p>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                      <div className="flex items-center gap-2 shrink-0 ml-3">
                         <span className="text-xs text-slate-500">{formatDate(server.renewalDate)}</span>
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                          renewal.color === "red" ? "bg-red-100 text-red-700" :
-                          renewal.color === "yellow" ? "bg-amber-100 text-amber-700" :
-                          "bg-emerald-100 text-emerald-700"
-                        }`}>
-                          {renewal.label}
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badgeClass}`}>
+                          {badgeLabel}
                         </span>
                       </div>
                     </div>

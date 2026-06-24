@@ -2,13 +2,26 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+function calcNextRenewal(startDate: Date, billingCycle: string, now: Date): Date {
+  const advance = (d: Date) => {
+    switch (billingCycle) {
+      case "MONTHLY":     d.setMonth(d.getMonth() + 1); break;
+      case "QUARTERLY":   d.setMonth(d.getMonth() + 3); break;
+      case "SEMI_ANNUAL": d.setMonth(d.getMonth() + 6); break;
+      default:            d.setFullYear(d.getFullYear() + 1);
+    }
+  };
+  const next = new Date(startDate);
+  while (next < now) advance(next);
+  return next;
+}
+
 export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   const [
     receivables,
@@ -16,7 +29,7 @@ export async function GET() {
     monthlyIncome,
     monthlyExpense,
     pendingJobs,
-    expiringServers,
+    allActiveServers,
     recentTransactions,
   ] = await Promise.all([
     prisma.transaction.findMany({
@@ -39,13 +52,11 @@ export async function GET() {
       where: { status: { in: ["OFFER", "APPROVED", "IN_PROGRESS"] } },
     }),
     prisma.server.findMany({
-      where: {
-        status: "ACTIVE",
-        renewalDate: { lte: thirtyDaysLater, gte: now },
+      where: { status: "ACTIVE" },
+      include: {
+        customer: { select: { name: true } },
+        payments: { orderBy: { validTo: "desc" }, take: 1 },
       },
-      include: { customer: { select: { name: true } } },
-      orderBy: { renewalDate: "asc" },
-      take: 5,
     }),
     prisma.transaction.findMany({
       where: { type: { in: ["INCOME", "EXPENSE"] } },
@@ -54,6 +65,42 @@ export async function GET() {
       take: 8,
     }),
   ]);
+
+  // Calculate real renewal dates (same logic as servers page and notifications)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  type ExpiringServer = {
+    id: string;
+    name: string;
+    renewalDate: string;
+    daysLeft: number;
+    customer: { name: string } | null;
+  };
+
+  const expiringServers: ExpiringServer[] = [];
+  for (const server of allActiveServers) {
+    let rd: Date | null = null;
+    if (server.payments[0]?.validTo) {
+      rd = new Date(server.payments[0].validTo);
+    } else if (server.startDate) {
+      rd = calcNextRenewal(new Date(server.startDate), server.billingCycle, today);
+    }
+    if (!rd) continue;
+
+    rd.setHours(0, 0, 0, 0);
+    const daysLeft = Math.round((rd.getTime() - today.getTime()) / 86_400_000);
+    if (daysLeft < 0 || daysLeft > 30) continue;
+
+    expiringServers.push({
+      id: server.id,
+      name: server.name,
+      renewalDate: rd.toISOString(),
+      daysLeft,
+      customer: server.customer,
+    });
+  }
+  expiringServers.sort((a, b) => a.daysLeft - b.daysLeft);
 
   const netReceivable = receivables.reduce((sum, t) => {
     const paid = t.payments.reduce((ps, p) => ps + p.amount, 0);
