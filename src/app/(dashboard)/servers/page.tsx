@@ -145,6 +145,7 @@ export default function ServersPage() {
   const [waServer, setWaServer]     = useState<ServerWithRenewal | null>(null);
   const [waAmount, setWaAmount]     = useState("");
   const [waCurrency, setWaCurrency] = useState("TRY");
+  const [waPeriods, setWaPeriods]   = useState(1);
 
   const now = new Date();
   const [filterYear, setFilterYear]   = useState<number | null>(null);
@@ -291,7 +292,26 @@ export default function ServersPage() {
     });
   };
 
-  const buildWaMessage = (s: ServerWithRenewal, amount: string, currency: string) => {
+  const buildWaMessage = (s: ServerWithRenewal, amount: string, currency: string, periods: number) => {
+    const domainText = s.domain ? ` (${s.domain})` : "";
+    const amtNum = parseFloat(amount) || 0;
+    const amountText = amtNum > 0 ? formatCurrency(amtNum, currency) : "—";
+
+    if (periods > 1 && s.lastPaymentValidTo && s.price) {
+      const perPeriodText = formatCurrency(s.price, currency);
+      const periodLbl = cycleLabel[s.billingCycle] || s.billingCycle;
+      return (
+        `Merhaba ${s.customer?.name || ""},\n\n` +
+        `*${s.name}*${domainText} hizmeti için birikmiş ödemeniz bulunmaktadır.\n\n` +
+        `📅 Son Ödeme Bitiş: ${formatDate(s.lastPaymentValidTo)}\n` +
+        `📋 Birikmiş Dönem: ${periods} × ${periodLbl}\n` +
+        `💰 Dönem Başına: ${perPeriodText}\n` +
+        `💰 Toplam Tutar: *${amountText}*\n\n` +
+        `Ödemenizi gerçekleştirmenizi rica ederiz.\n\n` +
+        `_HGweb Design_`
+      );
+    }
+
     const daysLeft = s.nextRenewal
       ? Math.ceil((s.nextRenewal.getTime() - Date.now()) / 86_400_000)
       : null;
@@ -300,9 +320,6 @@ export default function ServersPage() {
       : daysLeft < 0 ? "Süresi geçti"
       : `${daysLeft} gün`;
     const renewalDateStr = s.nextRenewal ? formatDate(s.nextRenewal) : "—";
-    const domainText = s.domain ? ` (${s.domain})` : "";
-    const amtNum = parseFloat(amount) || 0;
-    const amountText = amtNum > 0 ? formatCurrency(amtNum, currency) : "—";
     return (
       `Merhaba ${s.customer?.name || ""},\n\n` +
       `*${s.name}*${domainText} hizmetinizin yenileme zamanı yaklaşmaktadır.\n\n` +
@@ -316,8 +333,35 @@ export default function ServersPage() {
 
   const openWhatsApp = (s: ServerWithRenewal) => {
     setWaServer(s);
-    setWaAmount(s.price ? String(s.price) : "");
     setWaCurrency(s.currency);
+
+    // Birikmiş periyot hesabı: son ödeme validTo geçmişte mi?
+    let totalAmount = s.price ?? 0;
+    let periods = 1;
+
+    if (s.lastPaymentValidTo && s.price) {
+      const validTo = new Date(s.lastPaymentValidTo);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (validTo < today) {
+        const advancePeriod = (d: Date) => {
+          switch (s.billingCycle) {
+            case "MONTHLY":     d.setMonth(d.getMonth() + 1); break;
+            case "QUARTERLY":   d.setMonth(d.getMonth() + 3); break;
+            case "SEMI_ANNUAL": d.setMonth(d.getMonth() + 6); break;
+            default:            d.setFullYear(d.getFullYear() + 1);
+          }
+        };
+        const d = new Date(validTo);
+        periods = 0;
+        while (d < today) { advancePeriod(d); periods++; }
+        totalAmount = s.price * periods;
+      }
+    }
+
+    setWaAmount(totalAmount > 0 ? String(totalAmount) : "");
+    setWaPeriods(periods);
     setWaModal(true);
   };
 
@@ -334,7 +378,7 @@ export default function ServersPage() {
     if (cleaned.startsWith("0") && cleaned.length === 11) cleaned = "90" + cleaned.slice(1);
     else if (cleaned.length === 10) cleaned = "90" + cleaned;
 
-    const message = buildWaMessage(waServer, waAmount, waCurrency);
+    const message = buildWaMessage(waServer, waAmount, waCurrency, waPeriods);
     window.open(`https://wa.me/${cleaned}?text=${encodeURIComponent(message)}`, "_blank");
     setWaModal(false);
   };
@@ -602,6 +646,19 @@ export default function ServersPage() {
               </p>
             )}
 
+            {/* Birikmiş borç özeti */}
+            {waPeriods > 1 && waServer.lastPaymentValidTo && waServer.price && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-xs space-y-0.5">
+                <p className="font-semibold text-amber-700">Birikmiş Borç Hesabı</p>
+                <p className="text-amber-600">
+                  Son ödeme bitiş: {formatDate(waServer.lastPaymentValidTo)}
+                </p>
+                <p className="text-amber-600">
+                  {waPeriods} × {cycleLabel[waServer.billingCycle]} = {formatCurrency(waPeriods * waServer.price, waServer.currency)}
+                </p>
+              </div>
+            )}
+
             {/* Tutar */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Yenileme Tutarı</label>
@@ -630,7 +687,7 @@ export default function ServersPage() {
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Mesaj Önizleme</p>
               <div className="bg-green-50 border border-green-100 rounded-xl px-3 py-2.5 text-xs text-slate-700 whitespace-pre-wrap leading-relaxed font-mono">
-                {buildWaMessage(waServer, waAmount, waCurrency)}
+                {buildWaMessage(waServer, waAmount, waCurrency, waPeriods)}
               </div>
             </div>
           </div>
