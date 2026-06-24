@@ -15,7 +15,7 @@ import {
 import {
   Plus, Pencil, Trash2, Globe, Eye, EyeOff,
   ExternalLink, Copy, Calendar, ChevronLeft, ChevronRight,
-  Banknote, PlusCircle, X,
+  Banknote, PlusCircle, X, Mail, Loader2,
 } from "lucide-react";
 
 /* ─── Types ─────────────────────────────────────────────── */
@@ -136,6 +136,7 @@ export default function ServersPage() {
   const [showPaymentForm, setShowPaymentForm]     = useState(false);
   const [paymentForm, setPaymentForm] = useState({ amount: "", currency: "TRY", paidAt: "", validFrom: "", validTo: "", notes: "" });
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [sendingMail, setSendingMail] = useState<Record<string, boolean>>({});
 
   const now = new Date();
   const [filterYear, setFilterYear]   = useState<number | null>(null);
@@ -232,6 +233,25 @@ export default function ServersPage() {
   };
 
   const copy = (text: string) => navigator.clipboard.writeText(text);
+
+  const sendMail = async (id: string, name: string) => {
+    if (!confirm(`"${name}" için bildirim maili gönderilsin mi?`)) return;
+    setSendingMail((prev) => ({ ...prev, [id]: true }));
+    try {
+      const res = await fetch("/api/notifications/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serverId: id }),
+      });
+      const data = await res.json();
+      if (!res.ok) alert(`Hata: ${data.error}`);
+      else alert(`Mail gönderildi → ${data.sentTo}`);
+    } catch {
+      alert("Mail gönderilemedi");
+    } finally {
+      setSendingMail((prev) => ({ ...prev, [id]: false }));
+    }
+  };
 
   const customerOptions = [
     { value: "", label: "Müşteri seçin (opsiyonel)" },
@@ -338,6 +358,10 @@ export default function ServersPage() {
                 {filtered.map((s) => {
                   const renewal = getRenewalStatus(s.nextRenewal);
                   const expiring = (renewal.color === "red" || renewal.color === "yellow") && s.status === "ACTIVE";
+                  const daysLeft = s.nextRenewal
+                    ? Math.ceil((s.nextRenewal.getTime() - Date.now()) / 86_400_000)
+                    : null;
+                  const showMail = daysLeft !== null && daysLeft <= 30 && s.status === "ACTIVE";
                   return (
                     <tr key={s.id} onClick={() => openDetail(s)} className={`hover:bg-slate-50/70 transition-colors cursor-pointer ${expiring ? "bg-amber-50/30" : ""}`}>
                       <td className="px-5 py-3">
@@ -361,6 +385,24 @@ export default function ServersPage() {
                       <td className="px-5 py-3"><StatusBadge status={s.status} /></td>
                       <td className="px-5 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
+                          {showMail && (
+                            <button
+                              onClick={() => sendMail(s.id, s.name)}
+                              disabled={sendingMail[s.id]}
+                              title="Yenileme hatırlatması gönder"
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                daysLeft <= 3
+                                  ? "text-red-400 hover:text-red-600 hover:bg-red-50"
+                                  : daysLeft <= 7
+                                  ? "text-amber-400 hover:text-amber-600 hover:bg-amber-50"
+                                  : "text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50"
+                              }`}
+                            >
+                              {sendingMail[s.id]
+                                ? <Loader2 size={15} className="animate-spin" />
+                                : <Mail size={15} />}
+                            </button>
+                          )}
                           <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"><Pencil size={15} /></button>
                           <button onClick={() => remove(s.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={15} /></button>
                         </div>

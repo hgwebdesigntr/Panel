@@ -6,7 +6,7 @@ import { Header } from "@/components/layout/header";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Building2, FileText, ShieldCheck, CheckCircle2, ImageIcon, AlertCircle, Upload, X } from "lucide-react";
+import { Building2, FileText, ShieldCheck, CheckCircle2, ImageIcon, AlertCircle, Upload, X, Bell } from "lucide-react";
 
 interface Settings {
   companyName: string;
@@ -19,12 +19,13 @@ interface Settings {
   offerPrefix: string;
   logoBase64: string;
   faviconBase64: string;
+  notificationEmail: string;
 }
 
 const empty: Settings = {
   companyName: "", companyAddress: "", companyPhone: "", companyEmail: "",
   taxNumber: "", taxOffice: "", invoicePrefix: "FAT", offerPrefix: "TEK",
-  logoBase64: "", faviconBase64: "",
+  logoBase64: "", faviconBase64: "", notificationEmail: "",
 };
 
 function fileToBase64(file: File): Promise<string> {
@@ -239,6 +240,39 @@ export default function SettingsPage() {
             <div>
               <Input label="Teklif Öneki" {...f("offerPrefix")} placeholder="TEK" />
               <p className="text-xs text-slate-400 mt-1">Örnek: TEK-0001</p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Bildirimler */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell size={16} className="text-indigo-500" />
+              Bildirimler
+            </CardTitle>
+          </CardHeader>
+          <div className="space-y-4">
+            <Input
+              label="Bildirim E-postası"
+              type="email"
+              {...f("notificationEmail")}
+              placeholder="admin@firma.com"
+            />
+            <div className="p-4 bg-slate-50 rounded-xl space-y-1">
+              <p className="text-sm font-medium text-slate-700">Sunucu yenileme hatırlatmaları</p>
+              <p className="text-xs text-slate-500">
+                Aktif sunucu / domain kayıtları için yenileme tarihinden <strong>30, 7, 3, 1 ve 0 gün önce</strong> otomatik e-posta gönderilir.
+              </p>
+              <p className="text-xs text-slate-400 mt-2">
+                Gerekli ortam değişkenleri:{" "}
+                <code className="bg-slate-200 px-1 rounded">SMTP_HOST</code>{" "}
+                <code className="bg-slate-200 px-1 rounded">SMTP_PORT</code>{" "}
+                <code className="bg-slate-200 px-1 rounded">SMTP_USER</code>{" "}
+                <code className="bg-slate-200 px-1 rounded">SMTP_PASS</code>{" "}
+                — opsiyonel: <code className="bg-slate-200 px-1 rounded">SMTP_FROM</code>{" "}
+                <code className="bg-slate-200 px-1 rounded">SMTP_SECURE</code> (true/false)
+              </p>
             </div>
           </div>
         </Card>

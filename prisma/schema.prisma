@@ -271,19 +271,31 @@ enum DebtType {
 }
 
 model Settings {
-  id             String   @id @default("default")
-  companyName    String   @default("")
-  companyAddress String   @default("")
-  companyPhone   String   @default("")
-  companyEmail   String   @default("")
-  taxNumber      String   @default("")
-  taxOffice      String   @default("")
-  invoicePrefix  String   @default("FAT")
-  offerPrefix    String   @default("TEK")
-  nextInvoiceNo  Int      @default(1)
-  nextOfferNo    Int      @default(1)
-  encryptionKey  String   @default("")
-  logoBase64     String   @default("") @db.Text
-  faviconBase64  String   @default("") @db.Text
-  updatedAt      DateTime @updatedAt
+  id                String   @id @default("default")
+  companyName       String   @default("")
+  companyAddress    String   @default("")
+  companyPhone      String   @default("")
+  companyEmail      String   @default("")
+  taxNumber         String   @default("")
+  taxOffice         String   @default("")
+  invoicePrefix     String   @default("FAT")
+  offerPrefix       String   @default("TEK")
+  nextInvoiceNo     Int      @default(1)
+  nextOfferNo       Int      @default(1)
+  encryptionKey     String   @default("")
+  logoBase64        String   @default("") @db.Text
+  faviconBase64     String   @default("") @db.Text
+  notificationEmail String   @default("")
+  updatedAt         DateTime @updatedAt
+}
+
+model NotificationLog {
+  id       String   @id @default(cuid())
+  serverId String
+  daysLeft Int
+  sentAt   DateTime @default(now())
+  cycleKey String
+
+  @@unique([serverId, daysLeft, cycleKey])
+  @@index([serverId])
 }

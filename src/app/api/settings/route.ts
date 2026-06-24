@@ -26,16 +26,17 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     const data = {
-      companyName:    body.companyName    ?? "",
-      companyAddress: body.companyAddress ?? "",
-      companyPhone:   body.companyPhone   ?? "",
-      companyEmail:   body.companyEmail   ?? "",
-      taxNumber:      body.taxNumber      ?? "",
-      taxOffice:      body.taxOffice      ?? "",
-      invoicePrefix:  body.invoicePrefix  ?? "FAT",
-      offerPrefix:    body.offerPrefix    ?? "TEK",
-      logoBase64:     body.logoBase64     ?? "",
-      faviconBase64:  body.faviconBase64  ?? "",
+      companyName:       body.companyName       ?? "",
+      companyAddress:    body.companyAddress    ?? "",
+      companyPhone:      body.companyPhone      ?? "",
+      companyEmail:      body.companyEmail      ?? "",
+      taxNumber:         body.taxNumber         ?? "",
+      taxOffice:         body.taxOffice         ?? "",
+      invoicePrefix:     body.invoicePrefix     ?? "FAT",
+      offerPrefix:       body.offerPrefix       ?? "TEK",
+      logoBase64:        body.logoBase64        ?? "",
+      faviconBase64:     body.faviconBase64     ?? "",
+      notificationEmail: body.notificationEmail ?? "",
     };
 
     const settings = await prisma.settings.upsert({
