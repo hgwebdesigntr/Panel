@@ -238,18 +238,31 @@ model Service {
 }
 
 model PersonalDebt {
-  id          String    @id @default(cuid())
+  id          String                @id @default(cuid())
   type        DebtType
   person      String
   amount      Float
-  currency    String    @default("TRY")
-  date        DateTime  @default(now())
+  currency    String                @default("TRY")
+  date        DateTime              @default(now())
   dueDate     DateTime?
-  isSettled   Boolean   @default(false)
+  isSettled   Boolean               @default(false)
   settledDate DateTime?
   description String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  payments    PersonalDebtPayment[]
+}
+
+model PersonalDebtPayment {
+  id        String      @id @default(cuid())
+  debtId    String
+  amount    Float
+  date      DateTime    @default(now())
+  notes     String?
+  createdAt DateTime    @default(now())
+  debt      PersonalDebt @relation(fields: [debtId], references: [id], onDelete: Cascade)
+
+  @@index([debtId])
 }
 
 enum DebtType {
