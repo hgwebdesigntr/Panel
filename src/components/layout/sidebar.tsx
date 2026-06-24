@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, TrendingUp, Briefcase,
-  Server, FileText, Settings, LogOut, ChevronRight,
+  Server, FileText, Settings, LogOut, ChevronRight, Wallet,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useSettings } from "@/contexts/settings-context";
@@ -16,7 +16,8 @@ const nav = [
   { href: "/finance", label: "Finans", icon: TrendingUp },
   { href: "/jobs", label: "İş Takibi", icon: Briefcase },
   { href: "/servers", label: "Sunucular", icon: Server },
-  { href: "/invoices", label: "Faturalar", icon: FileText },
+  { href: "/invoices",  label: "Faturalar",         icon: FileText },
+  { href: "/personal", label: "Kişisel Borçlar",    icon: Wallet },
 ];
 
 export function Sidebar() {
