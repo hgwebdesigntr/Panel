@@ -7,10 +7,14 @@ export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const status = req.nextUrl.searchParams.get("status");
+  const status     = req.nextUrl.searchParams.get("status");
+  const customerId = req.nextUrl.searchParams.get("customerId");
 
   const jobs = await prisma.job.findMany({
-    where: status ? { status: status as "OFFER" | "APPROVED" | "IN_PROGRESS" | "COMPLETED" | "INVOICED" | "CANCELLED" } : undefined,
+    where: {
+      ...(status     ? { status: status as "OFFER" | "APPROVED" | "IN_PROGRESS" | "COMPLETED" | "INVOICED" | "CANCELLED" } : {}),
+      ...(customerId ? { customerId } : {}),
+    },
     include: { customer: { select: { id: true, name: true, company: true } } },
     orderBy: { createdAt: "desc" },
   });

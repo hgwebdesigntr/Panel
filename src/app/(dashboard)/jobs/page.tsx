@@ -8,6 +8,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/badge";
+import { ConfirmDialog, ConfirmData } from "@/components/ui/toast";
 import { formatCurrency, formatDate, formatDateInput } from "@/lib/utils";
 import { Plus, Pencil, Trash2, Calendar, User, Banknote, FileText, StickyNote, Paperclip, Download, X, Upload } from "lucide-react";
 
@@ -76,28 +77,34 @@ function endDateLabel(job: Job) {
 }
 
 export default function JobsPage() {
-  const [jobs, setJobs]           = useState<Job[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [view, setView]           = useState<"list" | "kanban">("list");
-  const [filter, setFilter]       = useState("");
-  const [modal, setModal]         = useState(false);
-  const [detailJob, setDetailJob] = useState<Job | null>(null);
-  const [editing, setEditing]     = useState<Job | null>(null);
-  const [form, setForm]           = useState(emptyForm);
-  const [loading, setLoading]     = useState(false);
-  const [detailDocs, setDetailDocs]       = useState<JobDocument[]>([]);
-  const [docsLoading, setDocsLoading]     = useState(false);
-  const [uploadingDoc, setUploadingDoc]   = useState(false);
+  const [jobs, setJobs]                         = useState<Job[]>([]);
+  const [customers, setCustomers]               = useState<Customer[]>([]);
+  const [view, setView]                         = useState<"list" | "kanban">("list");
+  const [filter, setFilter]                     = useState("");
+  const [customerFilter, setCustomerFilter]     = useState("");
+  const [confirmData, setConfirmData]           = useState<ConfirmData | null>(null);
+  const [modal, setModal]                       = useState(false);
+  const [detailJob, setDetailJob]               = useState<Job | null>(null);
+  const [editing, setEditing]                   = useState<Job | null>(null);
+  const [form, setForm]                         = useState(emptyForm);
+  const [loading, setLoading]                   = useState(false);
+  const [detailDocs, setDetailDocs]             = useState<JobDocument[]>([]);
+  const [docsLoading, setDocsLoading]           = useState(false);
+  const [uploadingDoc, setUploadingDoc]         = useState(false);
 
   const load = async () => {
-    const r = await fetch(`/api/jobs${filter ? `?status=${filter}` : ""}`);
+    const params = new URLSearchParams();
+    if (filter) params.set("status", filter);
+    if (customerFilter) params.set("customerId", customerFilter);
+    const q = params.toString();
+    const r = await fetch(`/api/jobs${q ? `?${q}` : ""}`);
     setJobs(await r.json());
   };
 
+  useEffect(() => { load(); }, [filter, customerFilter]);
   useEffect(() => {
-    load();
     fetch("/api/customers").then((r) => r.json()).then(setCustomers);
-  }, [filter]);
+  }, []);
 
   const openNew = () => { setEditing(null); setForm(emptyForm); setModal(true); };
 
@@ -135,10 +142,19 @@ export default function JobsPage() {
     load();
   };
 
-  const remove = async (id: string) => {
-    if (!confirm("Bu işi silmek istiyor musunuz?")) return;
-    await fetch(`/api/jobs/${id}`, { method: "DELETE" });
-    load();
+  const remove = (id: string) => {
+    setConfirmData({
+      title: "İşi Sil",
+      message: "Bu işi kalıcı olarak silmek istiyor musunuz?",
+      confirmLabel: "Sil",
+      danger: true,
+      onConfirm: async () => {
+        setConfirmData(null);
+        await fetch(`/api/jobs/${id}`, { method: "DELETE" });
+        load();
+      },
+      onCancel: () => setConfirmData(null),
+    });
   };
 
   const openDetail = async (j: Job) => {
@@ -213,6 +229,20 @@ export default function JobsPage() {
               {o.label}
             </button>
           ))}
+          {customers.length > 0 && (
+            <select
+              value={customerFilter}
+              onChange={(e) => setCustomerFilter(e.target.value)}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            >
+              <option value="">Tüm Müşteriler</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.company ? `${c.name} — ${c.company}` : c.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         {view === "list" ? (
@@ -508,6 +538,8 @@ export default function JobsPage() {
           </div>
         </Modal>
       )}
+
+      <ConfirmDialog data={confirmData} />
     </div>
   );
 }
