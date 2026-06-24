@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { sendRenewalNotification } from "@/lib/email";
 
-function getNextRenewalDate(startDate: Date, billingCycle: string): Date {
+// Frontend ile birebir aynı mantık (src/lib/utils.ts getNextRenewalDate)
+function calcNextRenewal(startDate: Date, billingCycle: string): Date {
   const advance = (d: Date) => {
     switch (billingCycle) {
       case "MONTHLY":     d.setMonth(d.getMonth() + 1); break;
@@ -23,7 +24,8 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { serverId } = await req.json();
+  const body = await req.json();
+  const { serverId } = body;
   if (!serverId) return NextResponse.json({ error: "serverId required" }, { status: 400 });
 
   const [settings, server] = await Promise.all([
@@ -45,26 +47,26 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Yenileme tarihini belirle: ödeme validTo > explicit renewalDate > startDate hesabı
+  // Frontend ile aynı öncelik sırası:
+  // 1. Son ödemenin validTo'su
+  // 2. Başlangıç tarihinden hesaplanan sonraki yenileme tarihi
+  // (renewalDate alanı frontend tarafından kullanılmıyor, biz de kullanmıyoruz)
   let rd: Date | null = null;
   if (server.payments[0]?.validTo) {
     rd = new Date(server.payments[0].validTo);
-  } else if (server.renewalDate) {
-    rd = new Date(server.renewalDate);
   } else if (server.startDate) {
-    rd = getNextRenewalDate(new Date(server.startDate), server.billingCycle);
+    rd = calcNextRenewal(new Date(server.startDate), server.billingCycle);
   }
 
   if (!rd) {
     return NextResponse.json(
-      { error: "Bu sunucu için başlangıç veya yenileme tarihi girilmemiş." },
+      { error: "Bu sunucu için başlangıç tarihi girilmemiş." },
       { status: 400 }
     );
   }
 
-  rd.setHours(0, 0, 0, 0);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const daysLeft = Math.round((rd.getTime() - today.getTime()) / 86_400_000);
+  // daysLeft: frontend ile aynı — Math.ceil + Date.now()
+  const daysLeft = Math.ceil((rd.getTime() - Date.now()) / 86_400_000);
   const lastPay = server.payments[0];
 
   try {

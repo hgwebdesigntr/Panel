@@ -29,10 +29,25 @@ export async function GET(req: NextRequest) {
   const results: { server: string; daysLeft: number; sent: boolean; error?: string }[] = [];
 
   for (const server of servers) {
-    const renewalDate = server.payments[0]?.validTo ?? server.renewalDate;
-    if (!renewalDate) continue;
+    // Frontend ile aynı öncelik: son ödeme validTo > startDate hesabı (renewalDate alanı yok sayılır)
+    let rd: Date | null = null;
+    if (server.payments[0]?.validTo) {
+      rd = new Date(server.payments[0].validTo);
+    } else if (server.startDate) {
+      const advance = (d: Date) => {
+        switch (server.billingCycle) {
+          case "MONTHLY":     d.setMonth(d.getMonth() + 1); break;
+          case "QUARTERLY":   d.setMonth(d.getMonth() + 3); break;
+          case "SEMI_ANNUAL": d.setMonth(d.getMonth() + 6); break;
+          default:            d.setFullYear(d.getFullYear() + 1);
+        }
+      };
+      const next = new Date(server.startDate);
+      if (next <= today) while (next <= today) advance(next);
+      rd = next;
+    }
+    if (!rd) continue;
 
-    const rd = new Date(renewalDate);
     rd.setHours(0, 0, 0, 0);
     const daysLeft = Math.round((rd.getTime() - today.getTime()) / 86_400_000);
     if (!THRESHOLDS.includes(daysLeft) || daysLeft < 0) continue;
