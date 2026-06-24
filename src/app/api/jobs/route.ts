@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     include: { customer: { select: { id: true, name: true } } },
   });
 
-  await syncJobFinance(job.id, job.title, price, paidAmount, body.currency || "TRY", body.customerId || null);
+  await syncJobFinance(job.id, job.title, price, paidAmount, body.currency || "TRY", body.customerId || null, body.status || "OFFER");
 
   return NextResponse.json(job, { status: 201 });
 }

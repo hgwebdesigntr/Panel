@@ -9,7 +9,7 @@ import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/badge";
 import { formatCurrency, formatDate, formatDateInput } from "@/lib/utils";
-import { Plus, Pencil, Trash2, Calendar, User, Banknote, FileText, StickyNote } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar, User, Banknote, FileText, StickyNote, Paperclip, Download, X, Upload } from "lucide-react";
 
 interface Job {
   id: string;
@@ -27,6 +27,21 @@ interface Job {
 }
 
 interface Customer { id: string; name: string; company: string | null; }
+
+interface JobDocument {
+  id: string;
+  name: string;
+  url: string;
+  size: number;
+  mimeType: string;
+  createdAt: string;
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 const emptyForm = {
   title: "", description: "", status: "OFFER", customerId: "",
@@ -70,6 +85,9 @@ export default function JobsPage() {
   const [editing, setEditing]     = useState<Job | null>(null);
   const [form, setForm]           = useState(emptyForm);
   const [loading, setLoading]     = useState(false);
+  const [detailDocs, setDetailDocs]       = useState<JobDocument[]>([]);
+  const [docsLoading, setDocsLoading]     = useState(false);
+  const [uploadingDoc, setUploadingDoc]   = useState(false);
 
   const load = async () => {
     const r = await fetch(`/api/jobs${filter ? `?status=${filter}` : ""}`);
@@ -121,6 +139,42 @@ export default function JobsPage() {
     if (!confirm("Bu işi silmek istiyor musunuz?")) return;
     await fetch(`/api/jobs/${id}`, { method: "DELETE" });
     load();
+  };
+
+  const openDetail = async (j: Job) => {
+    setDetailJob(j);
+    setDetailDocs([]);
+    setDocsLoading(true);
+    try {
+      const r = await fetch(`/api/jobs/${j.id}/documents`);
+      setDetailDocs(await r.json());
+    } finally {
+      setDocsLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !detailJob) return;
+    e.target.value = "";
+    setUploadingDoc(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const r = await fetch(`/api/jobs/${detailJob.id}/documents`, { method: "POST", body: formData });
+      if (r.ok) {
+        const doc = await r.json() as JobDocument;
+        setDetailDocs((prev) => [doc, ...prev]);
+      }
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
+  const deleteDoc = async (docId: string) => {
+    if (!detailJob) return;
+    await fetch(`/api/jobs/${detailJob.id}/documents/${docId}`, { method: "DELETE" });
+    setDetailDocs((prev) => prev.filter((d) => d.id !== docId));
   };
 
   const customerOptions = [
@@ -184,7 +238,7 @@ export default function JobsPage() {
                     return (
                       <tr
                         key={j.id}
-                        onClick={() => setDetailJob(j)}
+                        onClick={() => openDetail(j)}
                         className="hover:bg-slate-50/70 transition-colors cursor-pointer"
                       >
                         <td className="px-5 py-3">
@@ -244,7 +298,7 @@ export default function JobsPage() {
                   </div>
                   <div className="p-3 space-y-2 min-h-32">
                     {groupJobs.map((j) => (
-                      <div key={j.id} onClick={() => setDetailJob(j)} className="bg-slate-50 rounded-lg p-3 hover:bg-indigo-50 transition-colors cursor-pointer group/card">
+                      <div key={j.id} onClick={() => openDetail(j)} className="bg-slate-50 rounded-lg p-3 hover:bg-indigo-50 transition-colors cursor-pointer group/card">
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-medium text-slate-900 leading-snug">{j.title}</p>
                           <div className="flex gap-0.5 opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -420,6 +474,37 @@ export default function JobsPage() {
                 <p className="text-sm text-slate-700 whitespace-pre-wrap bg-amber-50 border border-amber-100 rounded-xl p-3">{detailJob.notes}</p>
               </div>
             )}
+
+            {/* Belgeler */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                  <Paperclip size={12} />Belgeler {detailDocs.length > 0 && `(${detailDocs.length})`}
+                </div>
+                <label className={`flex items-center gap-1 text-xs font-medium cursor-pointer px-2.5 py-1 rounded-lg transition-colors ${uploadingDoc ? "bg-slate-100 text-slate-400 pointer-events-none" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"}`}>
+                  <Upload size={12} />
+                  {uploadingDoc ? "Yükleniyor..." : "Belge Ekle"}
+                  <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploadingDoc} />
+                </label>
+              </div>
+              {docsLoading ? (
+                <p className="text-xs text-slate-400 text-center py-3">Yükleniyor...</p>
+              ) : detailDocs.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl">Henüz belge yok</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {detailDocs.map((doc) => (
+                    <div key={doc.id} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 group/doc">
+                      <Paperclip size={13} className="text-slate-400 shrink-0" />
+                      <span className="text-sm text-slate-700 flex-1 truncate">{doc.name}</span>
+                      <span className="text-xs text-slate-400 shrink-0">{formatFileSize(doc.size)}</span>
+                      <a href={doc.url} download={doc.name} target="_blank" rel="noreferrer" className="p-1 rounded text-slate-400 hover:text-indigo-600 opacity-0 group-hover/doc:opacity-100 transition-opacity shrink-0"><Download size={13} /></a>
+                      <button onClick={() => deleteDoc(doc.id)} className="p-1 rounded text-slate-400 hover:text-red-600 opacity-0 group-hover/doc:opacity-100 transition-opacity shrink-0"><X size={13} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </Modal>
       )}

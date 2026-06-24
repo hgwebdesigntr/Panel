@@ -30,7 +30,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     include: { customer: { select: { id: true, name: true } } },
   });
 
-  await syncJobFinance(id, job.title, price, paidAmount, body.currency || "TRY", body.customerId || null);
+  await syncJobFinance(id, job.title, price, paidAmount, body.currency || "TRY", body.customerId || null, body.status);
 
   return NextResponse.json(job);
 }

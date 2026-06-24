@@ -7,7 +7,13 @@ export async function syncJobFinance(
   paidAmount: number,
   currency: string,
   customerId: string | null,
+  status: string = "IN_PROGRESS",
 ) {
+  if (status === "OFFER") {
+    await prisma.transaction.deleteMany({ where: { jobId } });
+    return;
+  }
+
   const existing = await prisma.transaction.findMany({ where: { jobId } });
   const existingIncome     = existing.find((t) => t.type === "INCOME");
   const existingReceivable = existing.find((t) => t.type === "RECEIVABLE");
