@@ -14,10 +14,17 @@ export async function GET(req: NextRequest) {
       ...(type ? { type: type as "GIVEN" | "RECEIVED" } : {}),
       ...(settled !== null ? { isSettled: settled === "true" } : {}),
     },
+    include: { payments: { select: { amount: true } } },
     orderBy: { date: "desc" },
   });
 
-  return NextResponse.json(debts);
+  return NextResponse.json(
+    debts.map((d) => ({
+      ...d,
+      paidSum: d.payments.reduce((s, p) => s + p.amount, 0),
+      payments: undefined,
+    }))
+  );
 }
 
 export async function POST(req: NextRequest) {

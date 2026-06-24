@@ -24,6 +24,7 @@ interface PersonalDebt {
   isSettled: boolean;
   settledDate: string | null;
   description: string | null;
+  paidSum: number;
 }
 
 interface DebtPayment {
@@ -256,11 +257,14 @@ export default function PersonalPage() {
   const remaining = detailDebt ? Math.max(0, detailDebt.amount - paidSum) : 0;
   const remainingTRY = detailDebt ? toTRY(remaining, detailDebt.currency, rates) : null;
 
-  const sumInTRY = (list: PersonalDebt[]) =>
-    list.reduce((acc, d) => acc + (toTRY(d.amount, d.currency, rates) ?? 0), 0);
+  // Kalan = toplam - ödenen (paidSum API'den geliyor)
+  const debtRemaining = (d: PersonalDebt) => Math.max(0, d.amount - (d.paidSum ?? 0));
 
-  const openGiven    = sumInTRY(allDebts.filter((d) => d.type === "GIVEN"    && !d.isSettled));
-  const openReceived = sumInTRY(allDebts.filter((d) => d.type === "RECEIVED" && !d.isSettled));
+  const sumRemainingInTRY = (list: PersonalDebt[]) =>
+    list.reduce((acc, d) => acc + (toTRY(debtRemaining(d), d.currency, rates) ?? 0), 0);
+
+  const openGiven    = sumRemainingInTRY(allDebts.filter((d) => d.type === "GIVEN"    && !d.isSettled));
+  const openReceived = sumRemainingInTRY(allDebts.filter((d) => d.type === "RECEIVED" && !d.isSettled));
   const net          = openGiven - openReceived;
   const overdue      = debts.filter((d) => !d.isSettled && d.dueDate && new Date(d.dueDate) < new Date()).length;
 
@@ -390,7 +394,7 @@ export default function PersonalPage() {
                 <tr className="border-b border-slate-100 bg-slate-50/50">
                   <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3 uppercase tracking-wide">Kişi</th>
                   <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3 uppercase tracking-wide">Tür</th>
-                  <th className="text-right text-xs font-semibold text-slate-500 px-5 py-3 uppercase tracking-wide">Toplam</th>
+                  <th className="text-right text-xs font-semibold text-slate-500 px-5 py-3 uppercase tracking-wide">Kalan</th>
                   <th className="text-right text-xs font-semibold text-slate-500 px-5 py-3 uppercase tracking-wide">TL Karşılığı</th>
                   <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3 uppercase tracking-wide">Tarih</th>
                   <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3 uppercase tracking-wide">Vade</th>
@@ -400,7 +404,9 @@ export default function PersonalPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {debts.map((d) => {
-                  const tryVal = toTRY(d.amount, d.currency, rates);
+                  const rem    = debtRemaining(d);
+                  const tryVal = toTRY(rem, d.currency, rates);
+                  const hasPay = (d.paidSum ?? 0) > 0;
                   return (
                     <tr key={d.id} onClick={() => openDetail(d)} className="hover:bg-slate-50/70 transition-colors cursor-pointer">
                       <td className="px-5 py-3">
@@ -420,8 +426,11 @@ export default function PersonalPage() {
                       </td>
                       <td className="px-5 py-3 text-right">
                         <span className={`text-sm font-bold ${d.type === "GIVEN" ? "text-emerald-600" : "text-rose-600"}`}>
-                          {formatOriginal(d.amount, d.currency)}
+                          {formatOriginal(rem, d.currency)}
                         </span>
+                        {hasPay && (
+                          <p className="text-xs text-slate-400 mt-0.5">/ {formatOriginal(d.amount, d.currency)}</p>
+                        )}
                       </td>
                       <td className="px-5 py-3 text-right">
                         {d.currency === "TRY" ? (
