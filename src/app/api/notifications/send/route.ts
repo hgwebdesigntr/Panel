@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { sendRenewalNotification } from "@/lib/email";
 
-// Frontend ile birebir aynı mantık (src/lib/utils.ts getNextRenewalDate)
 function calcNextRenewal(startDate: Date, billingCycle: string): Date {
   const advance = (d: Date) => {
     switch (billingCycle) {
@@ -15,8 +14,9 @@ function calcNextRenewal(startDate: Date, billingCycle: string): Date {
   };
   const now = new Date(); now.setHours(0, 0, 0, 0);
   const next = new Date(startDate);
-  if (next > now) return next;
-  while (next <= now) advance(next);
+  // < yerine <= olursa UTC ortamında (Vercel) bugün tam eşit olduğunda
+  // fazladan bir dönem ilerliyor; < ile düzgün durur.
+  while (next < now) advance(next);
   return next;
 }
 
@@ -24,8 +24,7 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await req.json();
-  const { serverId } = body;
+  const { serverId } = await req.json();
   if (!serverId) return NextResponse.json({ error: "serverId required" }, { status: 400 });
 
   const [settings, server] = await Promise.all([
@@ -47,10 +46,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Frontend ile aynı öncelik sırası:
-  // 1. Son ödemenin validTo'su
-  // 2. Başlangıç tarihinden hesaplanan sonraki yenileme tarihi
-  // (renewalDate alanı frontend tarafından kullanılmıyor, biz de kullanmıyoruz)
   let rd: Date | null = null;
   if (server.payments[0]?.validTo) {
     rd = new Date(server.payments[0].validTo);
@@ -65,7 +60,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // daysLeft: frontend ile aynı — Math.ceil + Date.now()
   const daysLeft = Math.ceil((rd.getTime() - Date.now()) / 86_400_000);
   const lastPay = server.payments[0];
 
@@ -87,19 +81,7 @@ export async function POST(req: NextRequest) {
         : null,
     });
 
-    return NextResponse.json({
-      success: true,
-      sentTo: settings.notificationEmail,
-      debug: {
-        paymentValidTo: server.payments[0]?.validTo ?? null,
-        startDate: server.startDate,
-        renewalDate: server.renewalDate,
-        rdISO: rd.toISOString(),
-        rdLocal: rd.toLocaleDateString("tr-TR"),
-        daysLeft,
-        now: new Date().toISOString(),
-      },
-    });
+    return NextResponse.json({ success: true, sentTo: settings.notificationEmail });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }

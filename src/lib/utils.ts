@@ -62,9 +62,6 @@ export function getNextRenewalDate(
   };
 
   const next = new Date(start);
-  // If start is in the future, it IS the first renewal
-  if (next > now) return next;
-
-  while (next <= now) advance(next);
+  while (next < now) advance(next);
   return next;
 }

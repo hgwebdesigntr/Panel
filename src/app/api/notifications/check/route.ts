@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
         }
       };
       const next = new Date(server.startDate);
-      if (next <= today) while (next <= today) advance(next);
+      while (next < today) advance(next);
       rd = next;
     }
     if (!rd) continue;
