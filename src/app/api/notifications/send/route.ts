@@ -87,7 +87,19 @@ export async function POST(req: NextRequest) {
         : null,
     });
 
-    return NextResponse.json({ success: true, sentTo: settings.notificationEmail });
+    return NextResponse.json({
+      success: true,
+      sentTo: settings.notificationEmail,
+      debug: {
+        paymentValidTo: server.payments[0]?.validTo ?? null,
+        startDate: server.startDate,
+        renewalDate: server.renewalDate,
+        rdISO: rd.toISOString(),
+        rdLocal: rd.toLocaleDateString("tr-TR"),
+        daysLeft,
+        now: new Date().toISOString(),
+      },
+    });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
