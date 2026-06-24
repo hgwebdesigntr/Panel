@@ -8,6 +8,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/badge";
+import { Toast, ConfirmDialog, type ToastData, type ConfirmData } from "@/components/ui/toast";
 import {
   formatCurrency, formatDate, formatDateInput,
   getNextRenewalDate, getRenewalStatus,
@@ -137,6 +138,8 @@ export default function ServersPage() {
   const [paymentForm, setPaymentForm] = useState({ amount: "", currency: "TRY", paidAt: "", validFrom: "", validTo: "", notes: "" });
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [sendingMail, setSendingMail] = useState<Record<string, boolean>>({});
+  const [toast, setToast] = useState<ToastData | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmData | null>(null);
 
   const now = new Date();
   const [filterYear, setFilterYear]   = useState<number | null>(null);
@@ -190,10 +193,19 @@ export default function ServersPage() {
     load();
   };
 
-  const remove = async (id: string) => {
-    if (!confirm("Bu sunucuyu silmek istiyor musunuz?")) return;
-    await fetch(`/api/servers/${id}`, { method: "DELETE" });
-    load();
+  const remove = (id: string, name: string) => {
+    setConfirm({
+      title: "Sunucu silinsin mi?",
+      message: `"${name}" kaydını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`,
+      confirmLabel: "Sil",
+      danger: true,
+      onConfirm: async () => {
+        setConfirm(null);
+        await fetch(`/api/servers/${id}`, { method: "DELETE" });
+        load();
+      },
+      onCancel: () => setConfirm(null),
+    });
   };
 
   const openPaymentForm = () => {
@@ -219,38 +231,59 @@ export default function ServersPage() {
     load();
   };
 
-  const deletePayment = async (paymentId: string) => {
-    if (!detailServer || !confirm("Bu ödemeyi silmek istiyor musunuz?")) return;
-    await fetch(`/api/servers/${detailServer.id}/payments`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paymentId }),
+  const deletePayment = (paymentId: string) => {
+    if (!detailServer) return;
+    setConfirm({
+      title: "Ödeme silinsin mi?",
+      message: "Bu ödeme kaydını silmek istediğinize emin misiniz?",
+      confirmLabel: "Sil",
+      danger: true,
+      onConfirm: async () => {
+        setConfirm(null);
+        await fetch(`/api/servers/${detailServer.id}/payments`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paymentId }),
+        });
+        const r = await fetch(`/api/servers/${detailServer.id}`, { cache: "no-store" });
+        setDetailServer(await r.json());
+        load();
+      },
+      onCancel: () => setConfirm(null),
     });
-    const r = await fetch(`/api/servers/${detailServer.id}`, { cache: "no-store" });
-    const updated = await r.json();
-    setDetailServer(updated);
-    load();
   };
 
   const copy = (text: string) => navigator.clipboard.writeText(text);
 
-  const sendMail = async (id: string, name: string) => {
-    if (!confirm(`"${name}" için bildirim maili gönderilsin mi?`)) return;
-    setSendingMail((prev) => ({ ...prev, [id]: true }));
-    try {
-      const res = await fetch("/api/notifications/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ serverId: id }),
-      });
-      const data = await res.json();
-      if (!res.ok) alert(`Hata: ${data.error}`);
-      else alert(`Mail gönderildi → ${data.sentTo}`);
-    } catch {
-      alert("Mail gönderilemedi");
-    } finally {
-      setSendingMail((prev) => ({ ...prev, [id]: false }));
-    }
+  const sendMail = (id: string, name: string) => {
+    setConfirm({
+      title: "Bildirim maili gönderilsin mi?",
+      message: `"${name}" için yenileme hatırlatma maili gönderilecek.`,
+      confirmLabel: "Gönder",
+      danger: false,
+      onConfirm: async () => {
+        setConfirm(null);
+        setSendingMail((prev) => ({ ...prev, [id]: true }));
+        try {
+          const res = await fetch("/api/notifications/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ serverId: id }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            setToast({ type: "error", title: "Mail gönderilemedi", message: data.error });
+          } else {
+            setToast({ type: "success", title: "Mail gönderildi", message: `→ ${data.sentTo}` });
+          }
+        } catch {
+          setToast({ type: "error", title: "Mail gönderilemedi", message: "Bağlantı hatası" });
+        } finally {
+          setSendingMail((prev) => ({ ...prev, [id]: false }));
+        }
+      },
+      onCancel: () => setConfirm(null),
+    });
   };
 
   const customerOptions = [
@@ -404,7 +437,7 @@ export default function ServersPage() {
                             </button>
                           )}
                           <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"><Pencil size={15} /></button>
-                          <button onClick={() => remove(s.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={15} /></button>
+                          <button onClick={() => remove(s.id, s.name)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={15} /></button>
                         </div>
                       </td>
                     </tr>
@@ -465,6 +498,9 @@ export default function ServersPage() {
           <div className="col-span-2"><Textarea label="Notlar" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Notlar..." rows={2} /></div>
         </div>
       </Modal>
+
+      <Toast toast={toast} onClose={() => setToast(null)} />
+      <ConfirmDialog data={confirm} />
 
       {/* ── Detail Modal ─────────────────────────────────── */}
       <Modal
