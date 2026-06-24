@@ -85,6 +85,8 @@ export async function GET() {
       rd = new Date(server.payments[0].validTo);
     } else if (server.startDate) {
       rd = calcNextRenewal(new Date(server.startDate), server.billingCycle, today);
+    } else if (server.renewalDate) {
+      rd = new Date(server.renewalDate);
     }
     if (!rd) continue;
 
