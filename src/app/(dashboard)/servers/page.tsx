@@ -379,7 +379,14 @@ export default function ServersPage() {
     else if (cleaned.length === 10) cleaned = "90" + cleaned;
 
     const message = buildWaMessage(waServer, waAmount, waCurrency, waPeriods);
-    window.open(`https://wa.me/${cleaned}?text=${encodeURIComponent(message)}`, "_blank");
+    const url = `https://wa.me/${cleaned}?text=${encodeURIComponent(message)}`;
+
+    // Tauri desktop: system browser üzerinden aç
+    if (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window) {
+      import("@tauri-apps/plugin-opener").then(({ openUrl }) => openUrl(url));
+    } else {
+      window.open(url, "_blank");
+    }
     setWaModal(false);
   };
 
