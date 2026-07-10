@@ -10,7 +10,7 @@ import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/badge";
 import { ConfirmDialog, ConfirmData } from "@/components/ui/toast";
 import { formatCurrency, formatDate, formatDateInput } from "@/lib/utils";
-import { Plus, Pencil, Trash2, Calendar, User, Banknote, FileText, StickyNote, Paperclip, Download, X, Upload } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar, User, Banknote, FileText, StickyNote, Paperclip, Download, X, Upload, Archive } from "lucide-react";
 
 interface Job {
   id: string;
@@ -76,12 +76,21 @@ function endDateLabel(job: Job) {
   return "—";
 }
 
+function isArchived(j: Job): boolean {
+  return (
+    (j.status === "COMPLETED" || j.status === "INVOICED") &&
+    j.price != null &&
+    (j.paidAmount ?? 0) >= j.price
+  );
+}
+
 export default function JobsPage() {
   const [jobs, setJobs]                         = useState<Job[]>([]);
   const [customers, setCustomers]               = useState<Customer[]>([]);
   const [view, setView]                         = useState<"list" | "kanban">("list");
   const [filter, setFilter]                     = useState("");
   const [customerFilter, setCustomerFilter]     = useState("");
+  const [showArchive, setShowArchive]           = useState(false);
   const [confirmData, setConfirmData]           = useState<ConfirmData | null>(null);
   const [modal, setModal]                       = useState(false);
   const [detailJob, setDetailJob]               = useState<Job | null>(null);
@@ -94,14 +103,14 @@ export default function JobsPage() {
 
   const load = async () => {
     const params = new URLSearchParams();
-    if (filter) params.set("status", filter);
+    if (!showArchive && filter) params.set("status", filter);
     if (customerFilter) params.set("customerId", customerFilter);
     const q = params.toString();
     const r = await fetch(`/api/jobs${q ? `?${q}` : ""}`);
     setJobs(await r.json());
   };
 
-  useEffect(() => { load(); }, [filter, customerFilter]);
+  useEffect(() => { load(); }, [filter, customerFilter, showArchive]);
   useEffect(() => {
     fetch("/api/customers").then((r) => r.json()).then(setCustomers);
   }, []);
@@ -202,21 +211,34 @@ export default function JobsPage() {
   const paidVal      = parseFloat(form.paidAmount) || 0;
   const remainingVal = priceVal - paidVal;
 
+  const visibleJobs = showArchive
+    ? jobs.filter(isArchived)
+    : jobs.filter((j) => !isArchived(j));
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
-        title="İş Takibi"
-        subtitle={`${jobs.length} iş`}
+        title={showArchive ? "Arşiv" : "İş Takibi"}
+        subtitle={`${visibleJobs.length} iş`}
         actions={
           <div className="flex items-center gap-2">
-            <div className="flex bg-slate-100 rounded-lg p-0.5">
-              {(["list", "kanban"] as const).map((v) => (
-                <button key={v} onClick={() => setView(v)} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${view === v ? "bg-white shadow text-slate-900" : "text-slate-600 hover:text-slate-900"}`}>
-                  {v === "list" ? "Liste" : "Kanban"}
-                </button>
-              ))}
-            </div>
-            <Button onClick={openNew}><Plus size={16} />Yeni İş</Button>
+            <button
+              onClick={() => { setShowArchive(!showArchive); setFilter(""); if (!showArchive) setView("list"); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${showArchive ? "bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+            >
+              <Archive size={15} />
+              {showArchive ? "Aktif İşler" : "Arşiv"}
+            </button>
+            {!showArchive && (
+              <div className="flex bg-slate-100 rounded-lg p-0.5">
+                {(["list", "kanban"] as const).map((v) => (
+                  <button key={v} onClick={() => setView(v)} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${view === v ? "bg-white shadow text-slate-900" : "text-slate-600 hover:text-slate-900"}`}>
+                    {v === "list" ? "Liste" : "Kanban"}
+                  </button>
+                ))}
+              </div>
+            )}
+            {!showArchive && <Button onClick={openNew}><Plus size={16} />Yeni İş</Button>}
           </div>
         }
       />
@@ -224,7 +246,7 @@ export default function JobsPage() {
       <div className="flex-1 overflow-y-auto p-6 space-y-5 animate-fade-in">
         {/* Filtreler */}
         <div className="flex items-center gap-2 flex-wrap">
-          {statusFilters.map((o) => (
+          {!showArchive && statusFilters.map((o) => (
             <button key={o.value} onClick={() => setFilter(o.value)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${filter === o.value ? "bg-indigo-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
               {o.label}
             </button>
@@ -263,7 +285,7 @@ export default function JobsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {jobs.map((j) => {
+                  {visibleJobs.map((j) => {
                     const remaining = (j.price ?? 0) - (j.paidAmount ?? 0);
                     return (
                       <tr
@@ -307,8 +329,10 @@ export default function JobsPage() {
                       </tr>
                     );
                   })}
-                  {jobs.length === 0 && (
-                    <tr><td colSpan={9} className="text-center py-12 text-slate-400 text-sm">İş bulunamadı</td></tr>
+                  {visibleJobs.length === 0 && (
+                    <tr><td colSpan={9} className="text-center py-12 text-slate-400 text-sm">
+                      {showArchive ? "Arşivde iş bulunamadı" : "İş bulunamadı"}
+                    </td></tr>
                   )}
                 </tbody>
               </table>
@@ -317,7 +341,7 @@ export default function JobsPage() {
         ) : (
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
             {kanbanGroups.map((group) => {
-              const groupJobs = jobs.filter((j) => j.status === group.status);
+              const groupJobs = visibleJobs.filter((j) => j.status === group.status);
               return (
                 <div key={group.status} className={`bg-white rounded-xl border-t-4 ${group.color} border border-slate-200 shadow-sm`}>
                   <div className="p-4 border-b border-slate-100">
