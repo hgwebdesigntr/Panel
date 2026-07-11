@@ -29,6 +29,14 @@ interface Job {
 
 interface Customer { id: string; name: string; company: string | null; }
 
+interface JobPayment {
+  id: string;
+  amount: number;
+  note: string | null;
+  paidAt: string;
+  createdAt: string;
+}
+
 interface JobDocument {
   id: string;
   name: string;
@@ -100,6 +108,11 @@ export default function JobsPage() {
   const [detailDocs, setDetailDocs]             = useState<JobDocument[]>([]);
   const [docsLoading, setDocsLoading]           = useState(false);
   const [uploadingDoc, setUploadingDoc]         = useState(false);
+  const [detailPayments, setDetailPayments]     = useState<JobPayment[]>([]);
+  const [paymentsLoading, setPaymentsLoading]   = useState(false);
+  const [addingPayment, setAddingPayment]       = useState(false);
+  const [paymentForm, setPaymentForm]           = useState({ amount: "", note: "", paidAt: "" });
+  const [savingPayment, setSavingPayment]       = useState(false);
 
   const load = async () => {
     const params = new URLSearchParams();
@@ -169,13 +182,55 @@ export default function JobsPage() {
   const openDetail = async (j: Job) => {
     setDetailJob(j);
     setDetailDocs([]);
+    setDetailPayments([]);
+    setAddingPayment(false);
+    setPaymentForm({ amount: "", note: "", paidAt: "" });
     setDocsLoading(true);
+    setPaymentsLoading(true);
     try {
-      const r = await fetch(`/api/jobs/${j.id}/documents`);
-      setDetailDocs(await r.json());
+      const [docsR, paysR] = await Promise.all([
+        fetch(`/api/jobs/${j.id}/documents`),
+        fetch(`/api/jobs/${j.id}/payments`),
+      ]);
+      setDetailDocs(await docsR.json());
+      setDetailPayments(await paysR.json());
     } finally {
       setDocsLoading(false);
+      setPaymentsLoading(false);
     }
+  };
+
+  const addPayment = async () => {
+    if (!detailJob || !paymentForm.amount) return;
+    setSavingPayment(true);
+    try {
+      const r = await fetch(`/api/jobs/${detailJob.id}/payments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: parseFloat(paymentForm.amount),
+          note: paymentForm.note || null,
+          paidAt: paymentForm.paidAt || undefined,
+        }),
+      });
+      const { payment, paidAmount } = await r.json();
+      setDetailPayments((prev) => [payment, ...prev]);
+      setDetailJob((prev) => prev ? { ...prev, paidAmount } : prev);
+      setAddingPayment(false);
+      setPaymentForm({ amount: "", note: "", paidAt: "" });
+      setJobs((prev) => prev.map((j) => j.id === detailJob.id ? { ...j, paidAmount } : j));
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
+  const deletePayment = async (paymentId: string) => {
+    if (!detailJob) return;
+    const r = await fetch(`/api/jobs/${detailJob.id}/payments/${paymentId}`, { method: "DELETE" });
+    const { paidAmount } = await r.json();
+    setDetailPayments((prev) => prev.filter((p) => p.id !== paymentId));
+    setDetailJob((prev) => prev ? { ...prev, paidAmount } : prev);
+    setJobs((prev) => prev.map((j) => j.id === detailJob.id ? { ...j, paidAmount } : j));
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -419,11 +474,14 @@ export default function JobsPage() {
           {/* Fiyat */}
           <Input label="Toplam Fiyat" type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="0.00" />
           <div>
-            <Input label="Alınan Fiyat" type="number" step="0.01" value={form.paidAmount} onChange={(e) => setForm({ ...form, paidAmount: e.target.value })} placeholder="0.00" />
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Alınan</label>
+            <div className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-500">
+              {paidVal > 0 ? formatCurrency(paidVal, form.currency) : "—"} <span className="text-xs">(ödemelerden hesaplanır)</span>
+            </div>
           </div>
 
           {/* Kalan (hesaplanan) */}
-          {(priceVal > 0 || paidVal > 0) && (
+          {priceVal > 0 && (
             <div className="col-span-2">
               <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-semibold ${remainingVal > 0 ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>
                 <span>Kalan</span>
@@ -510,6 +568,58 @@ export default function JobsPage() {
                     {formatCurrency(detailJob.price - (detailJob.paidAmount ?? 0), detailJob.currency)}
                   </p>
                 </div>
+              </div>
+            )}
+
+            {/* Ödemeler */}
+            {detailJob.price != null && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                    <Banknote size={12} />Ödemeler {detailPayments.length > 0 && `(${detailPayments.length})`}
+                  </div>
+                  <button
+                    onClick={() => { setAddingPayment(!addingPayment); setPaymentForm({ amount: "", note: "", paidAt: "" }); }}
+                    className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-colors"
+                  >
+                    <Plus size={11} />{addingPayment ? "Kapat" : "Ödeme Ekle"}
+                  </button>
+                </div>
+
+                {addingPayment && (
+                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 mb-2 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input label="Tutar" type="number" step="0.01" value={paymentForm.amount} onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })} placeholder="0.00" />
+                      <Input label="Tarih" type="date" value={paymentForm.paidAt} onChange={(e) => setPaymentForm({ ...paymentForm, paidAt: e.target.value })} />
+                    </div>
+                    <Input label="Not (opsiyonel)" value={paymentForm.note} onChange={(e) => setPaymentForm({ ...paymentForm, note: e.target.value })} placeholder="Havale, nakit, kart..." />
+                    <div className="flex gap-2 justify-end pt-1">
+                      <button onClick={() => setAddingPayment(false)} className="text-xs text-slate-500 hover:text-slate-700 px-3 py-1.5">İptal</button>
+                      <Button onClick={addPayment} loading={savingPayment} disabled={!paymentForm.amount}>Kaydet</Button>
+                    </div>
+                  </div>
+                )}
+
+                {paymentsLoading ? (
+                  <p className="text-xs text-slate-400 text-center py-3">Yükleniyor...</p>
+                ) : detailPayments.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl">Henüz ödeme kaydı yok</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {detailPayments.map((p) => (
+                      <div key={p.id} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2.5 group/pay">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-semibold text-emerald-700">{formatCurrency(p.amount, detailJob.currency)}</span>
+                            {p.note && <span className="text-xs text-slate-500">{p.note}</span>}
+                          </div>
+                          <p className="text-xs text-slate-400 mt-0.5">{formatDate(p.paidAt)}</p>
+                        </div>
+                        <button onClick={() => deletePayment(p.id)} className="p-1 rounded text-slate-400 hover:text-red-600 opacity-0 group-hover/pay:opacity-100 transition-opacity shrink-0"><X size={13} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

@@ -10,7 +10,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const body = await req.json();
   const price = body.price ? parseFloat(body.price) : null;
-  const paidAmount = body.paidAmount ? parseFloat(body.paidAmount) : 0;
 
   const job = await prisma.job.update({
     where: { id },
@@ -22,7 +21,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       startDate: body.startDate ? new Date(body.startDate) : null,
       endDate: body.endDate ? new Date(body.endDate) : null,
       price,
-      paidAmount,
       currency: body.currency || "TRY",
       cost: body.cost ? parseFloat(body.cost) : null,
       notes: body.notes || null,
@@ -30,7 +28,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     include: { customer: { select: { id: true, name: true } } },
   });
 
-  await syncJobFinance(id, job.title, price, paidAmount, body.currency || "TRY", body.customerId || null, body.status);
+  await syncJobFinance(id, job.title, price, job.paidAmount ?? 0, job.currency, job.customerId, job.status);
 
   return NextResponse.json(job);
 }

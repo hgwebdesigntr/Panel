@@ -96,6 +96,19 @@ model Job {
   invoices     Invoice[]
   transactions Transaction[]
   documents    JobDocument[]
+  jobPayments  JobPayment[]
+}
+
+model JobPayment {
+  id        String   @id @default(cuid())
+  jobId     String
+  amount    Float
+  note      String?
+  paidAt    DateTime @default(now())
+  createdAt DateTime @default(now())
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
 }
 
 model JobDocument {
