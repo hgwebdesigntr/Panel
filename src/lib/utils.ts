@@ -47,21 +47,17 @@ export function getNextRenewalDate(
   billingCycle: string
 ): Date | null {
   if (!startDate) return null;
-  const start = new Date(startDate);
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  const next = new Date(startDate);
 
-  const advance = (d: Date) => {
-    switch (billingCycle) {
-      case "MONTHLY": d.setMonth(d.getMonth() + 1); break;
-      case "QUARTERLY": d.setMonth(d.getMonth() + 3); break;
-      case "SEMI_ANNUAL": d.setMonth(d.getMonth() + 6); break;
-      case "ANNUAL": d.setFullYear(d.getFullYear() + 1); break;
-      default: d.setFullYear(d.getFullYear() + 1);
-    }
-  };
-
-  const next = new Date(start);
-  while (next < now) advance(next);
+  // Ödeme kaydı yoksa gerçek ilk vade tarihini döndürür (bugüne kadar
+  // ileri atlamaz) — böylece ödenmemiş bir dönem geçmişte kaldıysa
+  // "süresi geçti" olarak görünür, sessizce yenilenmiş gibi gösterilmez.
+  switch (billingCycle) {
+    case "MONTHLY": next.setMonth(next.getMonth() + 1); break;
+    case "QUARTERLY": next.setMonth(next.getMonth() + 3); break;
+    case "SEMI_ANNUAL": next.setMonth(next.getMonth() + 6); break;
+    case "ANNUAL": next.setFullYear(next.getFullYear() + 1); break;
+    default: next.setFullYear(next.getFullYear() + 1);
+  }
   return next;
 }

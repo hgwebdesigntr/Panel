@@ -151,6 +151,7 @@ export default function ServersPage() {
   const [filterYear, setFilterYear]   = useState<number | null>(null);
   const [filterMonth, setFilterMonth] = useState<number | null>(null);
   const [filterType, setFilterType]   = useState("");
+  const [filterUrgency, setFilterUrgency] = useState<"" | "expiring" | "expired">("");
 
   const load = async () => {
     const r = await fetch("/api/servers");
@@ -407,6 +408,16 @@ export default function ServersPage() {
 
   const filtered = useMemo(() => serversWithRenewal.filter((s) => {
     if (filterType && s.type !== filterType) return false;
+    if (filterUrgency) {
+      const days = s.nextRenewal ? Math.ceil((s.nextRenewal.getTime() - Date.now()) / 86_400_000) : null;
+      if (filterUrgency === "expiring") {
+        if (s.status !== "ACTIVE" || days === null || days < 0 || days > 30) return false;
+      }
+      if (filterUrgency === "expired") {
+        if (s.status === "CANCELLED") return false;
+        if (s.status !== "EXPIRED" && (days === null || days >= 0)) return false;
+      }
+    }
     if (filterYear !== null && filterMonth !== null) {
       if (!s.nextRenewal) return false;
       return s.nextRenewal.getFullYear() === filterYear && s.nextRenewal.getMonth() === filterMonth;
@@ -416,7 +427,7 @@ export default function ServersPage() {
       return s.nextRenewal.getFullYear() === filterYear;
     }
     return true;
-  }), [serversWithRenewal, filterYear, filterMonth, filterType]);
+  }), [serversWithRenewal, filterYear, filterMonth, filterType, filterUrgency]);
 
   const currentYear  = now.getFullYear();
   const currentMonth = now.getMonth();
@@ -441,7 +452,15 @@ export default function ServersPage() {
   const expiringCount = serversWithRenewal.filter((s) => {
     if (s.status !== "ACTIVE" || !s.nextRenewal) return false;
     const days = Math.ceil((s.nextRenewal.getTime() - Date.now()) / 86400000);
-    return days <= 30;
+    return days >= 0 && days <= 30;
+  }).length;
+
+  const expiredCount = serversWithRenewal.filter((s) => {
+    if (s.status === "CANCELLED") return false;
+    if (s.status === "EXPIRED") return true;
+    if (!s.nextRenewal) return false;
+    const days = Math.ceil((s.nextRenewal.getTime() - Date.now()) / 86400000);
+    return days < 0;
   }).length;
 
   const totalPayments = (detailServer?.payments ?? []).reduce((sum, p) => sum + p.amount, 0);
@@ -450,7 +469,7 @@ export default function ServersPage() {
     <div className="flex flex-col flex-1 overflow-hidden">
       <Header
         title="Sunucular"
-        subtitle={`${servers.length} kayıt · ${expiringCount} yaklaşan yenileme`}
+        subtitle={`${servers.length} kayıt · ${expiringCount} yaklaşan yenileme · ${expiredCount} süresi biten`}
         actions={<Button onClick={openNew}><Plus size={16} />Yeni Kayıt</Button>}
       />
 
@@ -464,6 +483,20 @@ export default function ServersPage() {
             </button>
             <button onClick={goToNextMonth} className="p-0.5 text-slate-400 hover:text-slate-700"><ChevronRight size={16} /></button>
             {activeFilterLabel && <button onClick={clearMonthFilter} className="ml-1 text-xs text-slate-400 hover:text-red-500">✕</button>}
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setFilterUrgency(filterUrgency === "expiring" ? "" : "expiring")}
+              className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${filterUrgency === "expiring" ? "bg-amber-500 text-white border-amber-500" : "bg-white text-amber-600 border-amber-200 hover:border-amber-400"}`}
+            >
+              Yaklaşan ({expiringCount})
+            </button>
+            <button
+              onClick={() => setFilterUrgency(filterUrgency === "expired" ? "" : "expired")}
+              className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${filterUrgency === "expired" ? "bg-red-600 text-white border-red-600" : "bg-white text-red-600 border-red-200 hover:border-red-400"}`}
+            >
+              Süresi Biten ({expiredCount})
+            </button>
           </div>
           <div className="flex items-center gap-1">
             {["", "SERVER", "VPS", "HOSTING", "DOMAIN", "DOMAIN_HOSTING", "SSL"].map((t) => (

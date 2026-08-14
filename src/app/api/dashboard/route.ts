@@ -2,17 +2,14 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
-function calcNextRenewal(startDate: Date, billingCycle: string, now: Date): Date {
-  const advance = (d: Date) => {
-    switch (billingCycle) {
-      case "MONTHLY":     d.setMonth(d.getMonth() + 1); break;
-      case "QUARTERLY":   d.setMonth(d.getMonth() + 3); break;
-      case "SEMI_ANNUAL": d.setMonth(d.getMonth() + 6); break;
-      default:            d.setFullYear(d.getFullYear() + 1);
-    }
-  };
+function calcNextRenewal(startDate: Date, billingCycle: string): Date {
   const next = new Date(startDate);
-  while (next < now) advance(next);
+  switch (billingCycle) {
+    case "MONTHLY":     next.setMonth(next.getMonth() + 1); break;
+    case "QUARTERLY":   next.setMonth(next.getMonth() + 3); break;
+    case "SEMI_ANNUAL": next.setMonth(next.getMonth() + 6); break;
+    default:            next.setFullYear(next.getFullYear() + 1);
+  }
   return next;
 }
 
@@ -84,7 +81,7 @@ export async function GET() {
     if (server.payments[0]?.validTo) {
       rd = new Date(server.payments[0].validTo);
     } else if (server.startDate) {
-      rd = calcNextRenewal(new Date(server.startDate), server.billingCycle, today);
+      rd = calcNextRenewal(new Date(server.startDate), server.billingCycle);
     } else if (server.renewalDate) {
       rd = new Date(server.renewalDate);
     }

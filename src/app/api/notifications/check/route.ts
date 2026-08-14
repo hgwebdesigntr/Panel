@@ -34,16 +34,13 @@ export async function GET(req: NextRequest) {
     if (server.payments[0]?.validTo) {
       rd = new Date(server.payments[0].validTo);
     } else if (server.startDate) {
-      const advance = (d: Date) => {
-        switch (server.billingCycle) {
-          case "MONTHLY":     d.setMonth(d.getMonth() + 1); break;
-          case "QUARTERLY":   d.setMonth(d.getMonth() + 3); break;
-          case "SEMI_ANNUAL": d.setMonth(d.getMonth() + 6); break;
-          default:            d.setFullYear(d.getFullYear() + 1);
-        }
-      };
       const next = new Date(server.startDate);
-      while (next < today) advance(next);
+      switch (server.billingCycle) {
+        case "MONTHLY":     next.setMonth(next.getMonth() + 1); break;
+        case "QUARTERLY":   next.setMonth(next.getMonth() + 3); break;
+        case "SEMI_ANNUAL": next.setMonth(next.getMonth() + 6); break;
+        default:            next.setFullYear(next.getFullYear() + 1);
+      }
       rd = next;
     }
     if (!rd) continue;

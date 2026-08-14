@@ -4,19 +4,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendRenewalNotification } from "@/lib/email";
 
 function calcNextRenewal(startDate: Date, billingCycle: string): Date {
-  const advance = (d: Date) => {
-    switch (billingCycle) {
-      case "MONTHLY":     d.setMonth(d.getMonth() + 1); break;
-      case "QUARTERLY":   d.setMonth(d.getMonth() + 3); break;
-      case "SEMI_ANNUAL": d.setMonth(d.getMonth() + 6); break;
-      default:            d.setFullYear(d.getFullYear() + 1);
-    }
-  };
-  const now = new Date(); now.setHours(0, 0, 0, 0);
   const next = new Date(startDate);
-  // < yerine <= olursa UTC ortamında (Vercel) bugün tam eşit olduğunda
-  // fazladan bir dönem ilerliyor; < ile düzgün durur.
-  while (next < now) advance(next);
+  switch (billingCycle) {
+    case "MONTHLY":     next.setMonth(next.getMonth() + 1); break;
+    case "QUARTERLY":   next.setMonth(next.getMonth() + 3); break;
+    case "SEMI_ANNUAL": next.setMonth(next.getMonth() + 6); break;
+    default:            next.setFullYear(next.getFullYear() + 1);
+  }
   return next;
 }
 
