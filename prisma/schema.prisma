@@ -33,6 +33,7 @@ model Customer {
   jobs         Job[]
   servers      Server[]
   invoices     Invoice[]
+  prospects    Prospect[]
 }
 
 model Transaction {
@@ -300,6 +301,68 @@ model Settings {
   faviconBase64     String   @default("") @db.Text
   notificationEmail String   @default("")
   updatedAt         DateTime @updatedAt
+}
+
+model Prospect {
+  id              String          @id @default(cuid())
+  googlePlaceId   String          @unique
+  name            String
+  category        String?
+  province        String
+  district        String
+  address         String?
+  phone           String?
+  website         String?
+  googleMapsUrl   String?
+  rating          Float?
+  reviewCount     Int?
+  photoCount      Int?
+  hasOpeningHours Boolean         @default(false)
+  status          ProspectStatus  @default(NEW)
+  customerId      String?
+  customer        Customer?       @relation(fields: [customerId], references: [id])
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  audits          ProspectAudit[]
+
+  @@index([province, district])
+  @@index([customerId])
+}
+
+enum ProspectStatus {
+  NEW
+  CONTACTED
+  NEGOTIATING
+  WON
+  LOST
+  NOT_INTERESTED
+}
+
+model ProspectAudit {
+  id                  String   @id @default(cuid())
+  prospectId          String
+  prospect            Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  siteHealthScore     Int
+  sslOk               Boolean  @default(false)
+  performanceScore    Int?
+  accessibilityScore  Int?
+  bestPracticesScore  Int?
+  seoScore            Int?
+  lcp                 String?
+  cls                 String?
+  tbt                 String?
+  hasTitle            Boolean  @default(false)
+  hasMetaDescription  Boolean  @default(false)
+  h1Count             Int?
+  hasSchema           Boolean  @default(false)
+  isWordPress         Boolean  @default(false)
+  hasRobotsTxt        Boolean  @default(false)
+  hasSitemap          Boolean  @default(false)
+  error               String?
+  auditedAt           DateTime @default(now())
+
+  @@index([prospectId])
 }
 
 model NotificationLog {

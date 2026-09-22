@@ -49,6 +49,12 @@ export function StatusBadge({ status }: { status: string }) {
     EXPENSE: { label: "Gider", variant: "danger" },
     RECEIVABLE: { label: "Alacak", variant: "info" },
     PAYABLE: { label: "Verecek", variant: "warning" },
+    NEW: { label: "Yeni", variant: "info" },
+    CONTACTED: { label: "İletişime Geçildi", variant: "purple" },
+    NEGOTIATING: { label: "Görüşülüyor", variant: "warning" },
+    WON: { label: "Kazanıldı", variant: "success" },
+    LOST: { label: "Kaybedildi", variant: "danger" },
+    NOT_INTERESTED: { label: "İlgilenmiyor", variant: "gray" },
   };
 
   const config = map[status] || { label: status, variant: "gray" as BadgeVariant };
