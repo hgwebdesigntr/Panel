@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useUpdateSettings } from "@/contexts/settings-context";
 import { Header } from "@/components/layout/header";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Building2, FileText, ShieldCheck, CheckCircle2, ImageIcon, AlertCircle, Upload, X, Bell } from "lucide-react";
+import { Building2, FileText, ShieldCheck, CheckCircle2, ImageIcon, AlertCircle, Upload, X, Bell, Palette, Link2 } from "lucide-react";
 
 interface Settings {
   companyName: string;
@@ -111,6 +112,17 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const updateSettings = useUpdateSettings();
+  const searchParams = useSearchParams();
+
+  const [canvaConnected, setCanvaConnected] = useState<boolean | null>(null);
+  const canvaMessage = searchParams.get("canva");
+
+  useEffect(() => {
+    fetch("/api/canva/status")
+      .then((r) => r.json())
+      .then((d) => setCanvaConnected(Boolean(d.connected)))
+      .catch(() => setCanvaConnected(false));
+  }, [canvaMessage]);
 
   useEffect(() => {
     fetch("/api/settings", { cache: "no-store" })
@@ -202,6 +214,47 @@ export default function SettingsPage() {
                 hint="ICO veya PNG · Sekme simgesi olarak kullanılır"
               />
             </div>
+          </div>
+        </Card>
+
+        {/* Canva Entegrasyonu */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Palette size={16} className="text-indigo-500" />
+              Canva Entegrasyonu
+            </CardTitle>
+          </CardHeader>
+
+          {canvaMessage === "connected" && (
+            <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2 text-sm text-emerald-700">
+              <CheckCircle2 size={16} className="shrink-0" />
+              Canva hesabı başarıyla bağlandı.
+            </div>
+          )}
+          {canvaMessage === "error" && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-700">
+              <AlertCircle size={16} className="shrink-0" />
+              Canva bağlantısı başarısız oldu. Tekrar dene.
+            </div>
+          )}
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-slate-700">
+                {canvaConnected === null
+                  ? "Kontrol ediliyor..."
+                  : canvaConnected
+                    ? "Canva hesabı bağlı."
+                    : "Teklif PDF'lerini Canva şablonundan otomatik oluşturmak için hesabını bağla."}
+              </p>
+            </div>
+            <a href="/api/canva/authorize">
+              <Button variant={canvaConnected ? "outline" : "primary"} type="button">
+                <Link2 size={14} />
+                {canvaConnected ? "Yeniden Bağla" : "Canva'ya Bağlan"}
+              </Button>
+            </a>
           </div>
         </Card>
 

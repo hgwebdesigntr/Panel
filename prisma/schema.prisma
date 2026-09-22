@@ -325,6 +325,7 @@ model Prospect {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   audits          ProspectAudit[]
+  proposals       Proposal[]
 
   @@index([province, district])
   @@index([customerId])
@@ -385,6 +386,39 @@ enum ScanJobStatus {
   PENDING
   RUNNING
   COMPLETED
+  FAILED
+}
+
+model CanvaConnection {
+  id           String   @id @default("default")
+  accessToken  String   @db.Text
+  refreshToken String   @db.Text
+  expiresAt    DateTime
+  updatedAt    DateTime @updatedAt
+}
+
+model Proposal {
+  id             String    @id @default(cuid())
+  prospectId     String
+  prospect       Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  price          Float
+  currency       String    @default("TRY")
+  offerText      String    @db.Text
+  demoUrl        String?
+  canvaDesignId  String?
+  pdfUrl         String?
+  status         ProposalStatus @default(DRAFT)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([prospectId])
+}
+
+enum ProposalStatus {
+  DRAFT
+  GENERATING
+  READY
+  SENT
   FAILED
 }
 
