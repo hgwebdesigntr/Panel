@@ -365,6 +365,29 @@ model ProspectAudit {
   @@index([prospectId])
 }
 
+model ScanJob {
+  id            String        @id @default(cuid())
+  province      String
+  district      String
+  status        ScanJobStatus @default(PENDING)
+  totalFound    Int?
+  totalAudited  Int?
+  currentStep   String?
+  errorMessage  String?
+  requestedAt   DateTime      @default(now())
+  startedAt     DateTime?
+  completedAt   DateTime?
+
+  @@index([status])
+}
+
+enum ScanJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
 model NotificationLog {
   id       String   @id @default(cuid())
   serverId String
