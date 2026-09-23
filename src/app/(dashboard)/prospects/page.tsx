@@ -5,7 +5,7 @@ import { Header } from "@/components/layout/header";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Globe, Phone, Star, ExternalLink, ShieldAlert, MapPin, Radar, Loader2, CheckCircle2, XCircle, Clock, ChevronDown, Gauge, FileText, Code2, Sparkles, FileDown, FileSearch } from "lucide-react";
+import { Globe, Phone, Star, ExternalLink, ShieldAlert, MapPin, Radar, Loader2, CheckCircle2, XCircle, Clock, ChevronDown, Gauge, FileText, Code2, Sparkles, FileDown, FileSearch, X } from "lucide-react";
 import { ISTANBUL_DISTRICTS } from "@/lib/districts";
 
 interface ScanJob {
@@ -204,6 +204,11 @@ export default function ProspectsPage() {
     setScanSubmitting(false);
   };
 
+  const cancelScan = async (id: string) => {
+    await fetch(`/api/scan-jobs/${id}`, { method: "DELETE" });
+    loadScanJobs();
+  };
+
   const updateStatus = async (id: string, status: string) => {
     setProspects((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
     await fetch(`/api/prospects/${id}`, {
@@ -218,10 +223,17 @@ export default function ProspectsPage() {
     [prospects]
   );
 
-  const filteredProspects = useMemo(
-    () => (category ? prospects.filter((p) => p.category === category) : prospects),
-    [prospects, category]
-  );
+  // Skoru zaten sağlıklı (>=80) olan işletmelerde satılacak bir eksik yok —
+  // amaç eksiği olan işletmelerle iletişime geçmek olduğu için bunlar hiç
+  // listelenmiyor. Web sitesi olmayanlar (en büyük fırsat) her zaman görünür.
+  const filteredProspects = useMemo(() => {
+    return prospects.filter((p) => {
+      if (category && p.category !== category) return false;
+      const score = p.audits[0]?.siteHealthScore;
+      if (p.website && score != null && score >= 80) return false;
+      return true;
+    });
+  }, [prospects, category]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Prospect[]>();
@@ -238,7 +250,7 @@ export default function ProspectsPage() {
       });
     }
     return map;
-  }, [prospects]);
+  }, [filteredProspects]);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -279,12 +291,20 @@ export default function ProspectsPage() {
                   {job.status === "COMPLETED" && <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />}
                   {job.status === "FAILED" && <XCircle size={13} className="text-red-500 shrink-0" />}
                   <span className="font-medium text-slate-700">{job.province} / {job.district}</span>
-                  <span className="text-slate-400">
+                  <span className="text-slate-400 flex-1 truncate">
                     {job.status === "PENDING" && "sırada bekliyor"}
                     {job.status === "RUNNING" && (job.currentStep || "taranıyor...")}
                     {job.status === "COMPLETED" && `tamamlandı — ${job.totalFound ?? 0} işletme, ${job.totalAudited ?? 0} denetim`}
                     {job.status === "FAILED" && `hata: ${job.errorMessage || "bilinmiyor"}`}
                   </span>
+                  {(job.status === "PENDING" || job.status === "RUNNING") && (
+                    <button
+                      onClick={() => cancelScan(job.id)}
+                      className="shrink-0 flex items-center gap-1 text-slate-400 hover:text-red-600 transition-colors"
+                    >
+                      <X size={12} />İptal Et
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
