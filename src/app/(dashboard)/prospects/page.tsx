@@ -5,7 +5,7 @@ import { Header } from "@/components/layout/header";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Globe, Phone, Star, ExternalLink, ShieldAlert, MapPin, Radar, Loader2, CheckCircle2, XCircle, Clock, ChevronDown, Gauge, FileText, Code2 } from "lucide-react";
+import { Globe, Phone, Star, ExternalLink, ShieldAlert, MapPin, Radar, Loader2, CheckCircle2, XCircle, Clock, ChevronDown, Gauge, FileText, Code2, Sparkles, FileDown } from "lucide-react";
 import { ISTANBUL_DISTRICTS } from "@/lib/districts";
 
 interface ScanJob {
@@ -72,6 +72,74 @@ function scoreClasses(score: number) {
   if (score < 60) return "text-red-600 bg-red-50 ring-red-200";
   if (score < 80) return "text-amber-600 bg-amber-50 ring-amber-200";
   return "text-emerald-600 bg-emerald-50 ring-emerald-200";
+}
+
+function ProposalPanel({ prospectId }: { prospectId: string }) {
+  const [price, setPrice] = useState("");
+  const [demoUrl, setDemoUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [proposalId, setProposalId] = useState<string | null>(null);
+
+  const generate = async () => {
+    if (!price) return;
+    setLoading(true);
+    setError("");
+    setProposalId(null);
+    const r = await fetch("/api/proposals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prospectId, price: Number(price), demoUrl: demoUrl || undefined }),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      setError(data.error || "Teklif oluşturulamadı");
+    } else {
+      setProposalId(data.id);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="mt-4 pt-4 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Teklif Hazırla</p>
+      <div className="flex items-end gap-3">
+        <div className="w-36">
+          <label className="block text-xs font-medium text-slate-500 mb-1">Fiyat (TL)</label>
+          <input
+            type="number"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            placeholder="15000"
+            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        <div className="flex-1">
+          <label className="block text-xs font-medium text-slate-500 mb-1">Demo Link (opsiyonel)</label>
+          <input
+            type="text"
+            value={demoUrl}
+            onChange={(e) => setDemoUrl(e.target.value)}
+            placeholder="https://..."
+            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        <Button onClick={generate} loading={loading} disabled={!price} type="button">
+          <Sparkles size={14} />Teklif Oluştur
+        </Button>
+      </div>
+
+      {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+
+      {proposalId && (
+        <a href={`/api/proposals/${proposalId}/pdf`} target="_blank" rel="noopener noreferrer" className="inline-block mt-3">
+          <Button variant="outline" type="button">
+            <FileDown size={14} />Teklif PDF&apos;ini Aç
+          </Button>
+        </a>
+      )}
+    </div>
+  );
 }
 
 export default function ProspectsPage() {
@@ -389,6 +457,8 @@ export default function ProspectsPage() {
                               </p>
                             </div>
                           )}
+
+                          <ProposalPanel prospectId={p.id} />
                         </div>
                       )}
                     </Card>
