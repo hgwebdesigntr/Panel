@@ -5,7 +5,7 @@ import { Header } from "@/components/layout/header";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Globe, Phone, Star, ExternalLink, ShieldAlert, MapPin, Radar, Loader2, CheckCircle2, XCircle, Clock, ChevronDown, Gauge, FileText, Code2, Sparkles, FileDown } from "lucide-react";
+import { Globe, Phone, Star, ExternalLink, ShieldAlert, MapPin, Radar, Loader2, CheckCircle2, XCircle, Clock, ChevronDown, Gauge, FileText, Code2, Sparkles, FileDown, FileSearch } from "lucide-react";
 import { ISTANBUL_DISTRICTS } from "@/lib/districts";
 
 interface ScanJob {
@@ -375,6 +375,16 @@ export default function ProspectsPage() {
                             <p className="text-[9px] mt-0.5">site skoru</p>
                           </div>
                         )}
+
+                        <a
+                          href={`/report/${p.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="shrink-0 flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 px-2 py-1.5"
+                        >
+                          <FileSearch size={14} />Detaylı Rapor
+                        </a>
 
                         <select
                           value={p.status}
