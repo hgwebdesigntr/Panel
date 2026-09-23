@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { prisma } from "@/lib/prisma";
+import { TauriExternalLinks } from "@/components/tauri-external-links";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ export default function RootLayout({
   return (
     <html lang="tr" className="h-full">
       <body className="h-full bg-slate-50 text-slate-900 antialiased">
+        <TauriExternalLinks />
         {children}
       </body>
     </html>
